@@ -195,8 +195,8 @@ with tab2:
             base_val = explainer.expected_value
 
         explanation = shap.Explanation(
-            values=shap_vals[0],
-            base_values=base_val,
+            values=np.array(shap_vals[0]),
+            base_values=np.array(base_val),
             data=user_data_aligned.iloc[0],
             feature_names=model_features
         )
