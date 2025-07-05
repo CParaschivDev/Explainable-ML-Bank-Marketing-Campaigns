@@ -197,7 +197,7 @@ with tab2:
         explanation = shap.Explanation(
             values=np.array(shap_vals[0]),
             base_values=np.array(base_val),
-            data=user_data_aligned.iloc[0],
+            data=np.array(user_data_aligned.iloc[0]),
             feature_names=model_features
         )
 
