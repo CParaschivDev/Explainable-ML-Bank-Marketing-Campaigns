@@ -7,17 +7,17 @@ import seaborn as sns
 import shap
 import os
 
-# --- SHAP Helper Function ---
+# --- Helper Function for SHAP Force Plots (Define before use) ---
 def st_shap(plot, height=None):
     shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
     st.components.v1.html(shap_html, height=height)
 
-# --- Load Models ---
+# --- 1. Load Pretrained Models with Robust Error Handling ---
 @st.cache_resource
 def load_models():
     models_dir = "models"
     if not os.path.isdir(models_dir):
-        st.error(f"Missing '{models_dir}' directory.")
+        st.error(f"Error: The '{models_dir}' directory was not found. Please make sure it's in your GitHub repository.")
         st.stop()
 
     model_paths = {
@@ -31,65 +31,85 @@ def load_models():
     for name, path in model_paths.items():
         try:
             loaded_models[name] = joblib.load(path)
+        except FileNotFoundError:
+            st.error(f"Model file not found at '{path}'. Ensure it exists.")
+            st.stop()
         except Exception as e:
-            st.error(f"Could not load {name}: {e}")
+            st.error(f"Error loading {name}: {e}")
             st.stop()
     return loaded_models
 
-# --- Load Sample Data ---
+# --- 2. Load Background Data for SHAP ---
 @st.cache_data
 def load_sample_data(path="sample_data.csv"):
     try:
-        return pd.read_csv(path)
+        data = pd.read_csv(path)
+        data['campaign_log'] = np.log(data['campaign'] + 1e-6)
+        data['pdays_log'] = np.log(data['pdays'] + 1e-6)
+        data['previous_log'] = np.log(data['previous'] + 1e-6)
+        data['duration_log'] = np.log(data['duration'] + 1e-6)
+        return data
+    except FileNotFoundError:
+        st.error(f"Sample data not found at '{path}'.")
+        st.stop()
     except Exception as e:
-        st.error(f"Could not load sample data: {e}")
+        st.error(f"Error loading sample data: {e}")
         st.stop()
 
-# --- Setup ---
-st.set_page_config("Bank Marketing Predictor 🏦", layout="wide")
+# --- Page Setup ---
+st.set_page_config(page_title="Bank Marketing Predictor 🏦", layout="wide")
+
 models = load_models()
 sample_data = load_sample_data()
 
-model_features = list(sample_data.columns)
+model_features = sample_data.columns.tolist()
+
+if not all(feature in sample_data.columns for feature in model_features):
+    st.error("Sample data does not contain all required features.")
+    st.stop()
+
 X_background = sample_data[model_features].head(100)
 
 st.title("Bank Marketing Campaign Predictor 📈")
 st.markdown("""
-This app predicts whether a customer will subscribe to a term deposit, and explains model decisions with SHAP.
+Predict whether a bank customer will subscribe to a term deposit
+based on various input features and explore the explanations behind the predictions.
 """)
 
-# --- Sidebar ---
-st.sidebar.header("Controls")
-selected_models = st.sidebar.multiselect("Models:", list(models.keys()), default=list(models.keys()))
+# --- Sidebar Controls ---
+st.sidebar.header("App Controls")
+selected_models = st.sidebar.multiselect("Choose Models:", list(models.keys()), default=list(models.keys()))
 confidence_threshold = st.sidebar.slider("Confidence Threshold:", 0.0, 1.0, 0.5, 0.01)
-shap_plot_type = st.sidebar.selectbox("SHAP Plot Type:", ["Bar Plot", "Waterfall", "Force Plot"])
+
+st.sidebar.header("SHAP Controls")
+shap_plot_type = st.sidebar.selectbox("SHAP Plot Type:", ("Bar Plot", "Waterfall", "Force Plot"))
 selected_shap_model_name = st.sidebar.selectbox("Model for SHAP:", list(models.keys()))
 
-# --- User Inputs ---
-st.header("Customer Information")
+# --- Input Form ---
+st.header("Customer Input")
 col1, col2, col3 = st.columns(3)
 
 with col1:
     age = st.slider("Age", 18, 100, 40)
-    duration = st.slider("Last contact duration (s)", 0, 5000, 300)
-    campaign = st.number_input("This campaign contacts", 1, 60, 2)
-    pdays = st.number_input("Days since last contact", 0, 999, 999)
-    previous = st.number_input("Previous contacts", 0, 10, 0)
+    duration = st.slider("Duration (s)", 0, 5000, 300)
+    campaign = st.number_input("Campaign Contacts", 1, 60, 2)
+    pdays = st.number_input("Days Since Last Contact", 0, 999, 999)
+    previous = st.number_input("Previous Contacts", 0, 10, 0)
 
 with col2:
-    emp_var_rate = st.number_input("Employment variation rate", -4.0, 2.0, 1.1, step=0.1)
-    cons_price_idx = st.number_input("Consumer price index", 92.0, 95.0, 93.9, step=0.1)
-    cons_conf_idx = st.number_input("Consumer confidence index", -51.0, -26.0, -42.7, step=0.1)
+    emp_var_rate = st.number_input("Employment Var. Rate", -4.0, 2.0, 1.1, step=0.1)
+    cons_price_idx = st.number_input("Consumer Price Index", 92.0, 95.0, 93.9, step=0.1)
+    cons_conf_idx = st.number_input("Consumer Confidence Index", -51.0, -26.0, -42.7, step=0.1)
     euribor3m = st.number_input("Euribor 3m", 0.5, 5.5, 4.8, step=0.1)
-    nr_employed = st.number_input("Number of employees", 4900.0, 5300.0, 5191.0, step=0.1)
+    nr_employed = st.number_input("Number Employed", 4900.0, 5300.0, 5191.0, step=0.1)
 
 with col3:
-    contact_telephone = not st.checkbox("Contacted via Cellular", True)
-    poutcome_success = st.checkbox("Previous Outcome: Success", False)
-    st.write("Categorical fields like job, marital, etc. default to 0")
+    contact_telephone = not st.checkbox("Contacted via Cellular?", True)
+    poutcome_success = st.checkbox("Previous Outcome: Success?", False)
 
-user_input = {feature: 0 for feature in model_features}
-user_input.update({
+# --- Preprocess Input ---
+user_input_dict = {feature: 0 for feature in model_features}
+user_input_dict.update({
     'age': age,
     'duration': duration,
     'campaign': campaign,
@@ -103,61 +123,66 @@ user_input.update({
     'contact_telephone': 1 if contact_telephone else 0,
     'poutcome_success': 1 if poutcome_success else 0,
     'campaign_log': np.log(campaign + 1e-6),
-    'duration_log': np.log(duration + 1e-6),
     'pdays_log': np.log(pdays + 1e-6),
     'previous_log': np.log(previous + 1e-6),
+    'duration_log': np.log(duration + 1e-6)
 })
 
-user_df = pd.DataFrame([user_input]).reindex(columns=model_features, fill_value=0)
+user_data = pd.DataFrame([user_input_dict])
+user_data_aligned = user_data.reindex(columns=model_features, fill_value=0)
 
 # --- Tabs ---
 tab1, tab2 = st.tabs(["📊 Predictions", "🔍 SHAP Explanation"])
 
 with tab1:
-    st.subheader("Model Predictions")
-    st.dataframe(user_df)
+    st.header("Prediction Results")
+    if not selected_models:
+        st.warning("Select at least one model.")
+    else:
+        st.dataframe(user_data_aligned)
+        predictions_df = pd.DataFrame(columns=["Model", "Prediction", "Confidence"])
+        confidences, predictions = [], []
 
-    results = []
-    votes, probs = [], []
+        for model_name in selected_models:
+            model = models[model_name]
+            try:
+                proba = model.predict_proba(user_data_aligned)[:, 1][0]
+                label = "Subscribed" if proba >= confidence_threshold else "Not Subscribed"
+                predictions_df.loc[len(predictions_df)] = [model_name, label, f"{proba:.2f}"]
+                confidences.append(proba)
+                predictions.append(1 if label == "Subscribed" else 0)
+            except Exception as e:
+                st.error(f"Error with {model_name}: {e}")
 
-    for name in selected_models:
-        try:
-            model = models[name]
-            p = model.predict_proba(user_df)[0, 1]
-            label = "Subscribed" if p >= confidence_threshold else "Not Subscribed"
-            results.append([name, label, f"{p:.2f}"])
-            probs.append(p)
-            votes.append(label == "Subscribed")
-        except Exception as e:
-            st.error(f"{name} failed: {e}")
-
-    df_result = pd.DataFrame(results, columns=["Model", "Prediction", "Confidence"])
-    st.dataframe(df_result)
-
-    if probs:
-        ensemble = "Subscribed" if sum(votes) >= len(votes)/2 else "Not Subscribed"
-        avg_conf = np.mean(probs)
-        st.markdown(f"**Ensemble Prediction:** {ensemble}")
-        st.markdown(f"**Average Confidence:** `{avg_conf:.2f}`")
-
-        fig, ax = plt.subplots()
-        sns.barplot(x=selected_models, y=probs, ax=ax)
-        ax.set_ylim(0, 1)
-        st.pyplot(fig)
+        st.dataframe(predictions_df, use_container_width=True)
+        if confidences:
+            vote = "Subscribed" if sum(predictions) >= len(predictions)/2 else "Not Subscribed"
+            st.markdown(f"**Ensemble Vote:** `{vote}`")
+            st.markdown(f"**Avg Confidence:** `{np.mean(confidences):.2f}`")
+            fig, ax = plt.subplots()
+            sns.barplot(x=selected_models, y=confidences, ax=ax)
+            ax.set_ylim(0, 1)
+            ax.set_ylabel("P=Subscribed")
+            ax.set_title("Model Confidences")
+            st.pyplot(fig)
 
 with tab2:
-    st.subheader("SHAP Explanation")
+    st.header(f"SHAP Explanation: {selected_shap_model_name}")
     try:
         model = models[selected_shap_model_name]
-        explainer = (shap.TreeExplainer(model, X_background)
-                     if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name
-                     else shap.KernelExplainer(model.predict_proba, X_background))
+        if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
+            explainer = shap.TreeExplainer(model, X_background)
+        else:
+            explainer = shap.KernelExplainer(model.predict_proba, X_background)
 
-        shap_vals = explainer.shap_values(user_df)
-        val = shap_vals[1][0] if isinstance(shap_vals, list) else shap_vals[0]
-        base_val = explainer.expected_value[1] if isinstance(explainer.expected_value, list) else explainer.expected_value
+        shap_vals = explainer.shap_values(user_data_aligned)
+        if isinstance(shap_vals, list):
+            shap_vals = shap_vals[1]
+            base_val = explainer.expected_value[1]
+        else:
+            base_val = explainer.expected_value
 
-        explanation = shap.Explanation(values=val, base_values=base_val, data=user_df.iloc[0], feature_names=model_features)
+        explanation = shap.Explanation(values=shap_vals[0], base_values=base_val, data=user_data_aligned.iloc[0], feature_names=model_features)
 
         if shap_plot_type == "Bar Plot":
             fig, _ = plt.subplots()
@@ -168,7 +193,6 @@ with tab2:
             shap.plots.waterfall(explanation, show=False)
             st.pyplot(fig)
         elif shap_plot_type == "Force Plot":
-            st_shap(shap.force_plot(base_val, val, user_df.iloc[0]))
-
+            st_shap(shap.force_plot(base_val, explanation.values, features=explanation.data, feature_names=explanation.feature_names))
     except Exception as e:
-        st.error(f"SHAP failed: {e}")
+        st.error(f"SHAP error: {e}")
