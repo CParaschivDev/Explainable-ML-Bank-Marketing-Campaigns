@@ -7,9 +7,20 @@ import seaborn as sns
 import shap
 import os
 
+# --- Helper Function for SHAP Force Plots (Moved to the Top) ---
+# This function must be defined before it is called to avoid a NameError.
+def st_shap(plot, height=None):
+    """
+    Helper function to display SHAP plots in Streamlit.
+    This function embeds the SHAP plot's HTML into the Streamlit app.
+    """
+    shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
+    st.components.v1.html(shap_html, height=height)
+
 # --- 1. Load Pretrained Models ---
 @st.cache_resource
 def load_models():
+    """Loads all models from the 'models' directory."""
     models_dir = "models"
     model_paths = {
         "Decision Tree": os.path.join(models_dir, "decision_tree_model.pkl"),
@@ -34,6 +45,7 @@ models = load_models()
 # --- Dummy or Cached Background Data for SHAP ---
 @st.cache_data
 def load_sample_data(path="sample_data.csv"):
+    """Loads sample data for SHAP KernelExplainer background."""
     try:
         return pd.read_csv(path)
     except FileNotFoundError:
@@ -50,7 +62,6 @@ if not all(feature in sample_data.columns for feature in model_features):
     st.error("Sample data does not contain all required features for SHAP explanation.")
     st.stop()
 X_background = sample_data[model_features]
-
 
 # --- 2. Streamlit Page Setup ---
 st.set_page_config(
@@ -122,7 +133,6 @@ with tab1:
         for model_name in selected_models:
             model = models[model_name]
             try:
-                # Predict probabilities for the positive class (1)
                 proba = model.predict_proba(user_data_aligned)[:, 1][0]
                 prediction_label = "Subscribed" if proba >= confidence_threshold else "Not Subscribed"
                 
@@ -135,15 +145,12 @@ with tab1:
         st.dataframe(predictions_df, use_container_width=True)
 
         if confidences:
-            # Ensemble Majority Vote
             ensemble_vote = "Subscribed" if sum(individual_predictions) >= len(individual_predictions) / 2 else "Not Subscribed"
             st.markdown(f"**Ensemble Majority Vote Result:** <span style='color: {'green' if ensemble_vote == 'Subscribed' else 'red'}; font-weight: bold;'>{ensemble_vote}</span>", unsafe_allow_html=True)
 
-            # Average Ensemble Confidence
             avg_confidence = np.mean(confidences)
             st.markdown(f"**Average Ensemble Confidence (P=Subscribed):** `{avg_confidence:.2f}`")
 
-            # Bar plot of confidences
             st.subheader("Model Confidence Comparison")
             fig, ax = plt.subplots(figsize=(10, 6))
             sns.barplot(x=selected_models, y=confidences, ax=ax, palette="viridis")
@@ -152,7 +159,6 @@ with tab1:
             ax.set_title("Individual Model Confidence")
             st.pyplot(fig)
 
-            # --- 6. Download Button ---
             csv_predictions = predictions_df.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="Download Predictions as CSV",
@@ -176,58 +182,48 @@ with tab2:
             if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
                 explainer = shap.TreeExplainer(model_to_explain)
             else:
-                # For KNN and Naive Bayes, use KernelExplainer
-                # Ensure X_background is suitable (e.g., a small sample of training data)
                 explainer = shap.KernelExplainer(model_to_explain.predict_proba, X_background)
 
             shap_values = explainer.shap_values(user_data_aligned)
 
             st.subheader(f"SHAP Values for {selected_shap_model_name} ({shap_plot_type})")
 
-            # SHAP plots
+            # --- IMPROVEMENT: Use explicit Matplotlib figures for SHAP plots ---
+            # This is a more robust way to handle plotting in Streamlit and can prevent
+            # segfaults by not relying on matplotlib's global state.
+            
+            # Prepare explanation object for the positive class (Subscribed)
+            if isinstance(shap_values, list):
+                # For classifiers, explain the output for the "Subscribed" class (index 1)
+                explanation = shap.Explanation(
+                    values=shap_values[1][0],
+                    base_values=explainer.expected_value[1],
+                    data=user_data_aligned.iloc[0],
+                    feature_names=model_features
+                )
+            else: # For single-output models (not used here, but good practice)
+                explanation = shap.Explanation(
+                    values=shap_values[0],
+                    base_values=explainer.expected_value,
+                    data=user_data_aligned.iloc[0],
+                    feature_names=model_features
+                )
+
+            # Generate and display plots
             if shap_plot_type == "Bar Plot":
-                # For classification, shap_values will be a list of arrays (one for each class)
-                # We usually want to explain the positive class (index 1)
-                if isinstance(shap_values, list):
-                    shap.plots.bar(shap.Explanation(values=shap_values[1][0], 
-                                                    base_values=explainer.expected_value[1], 
-                                                    data=user_data_aligned.iloc[0], 
-                                                    feature_names=model_features), show=False)
-                else: # For regression or single output models
-                    shap.plots.bar(shap.Explanation(values=shap_values[0], 
-                                                    base_values=explainer.expected_value, 
-                                                    data=user_data_aligned.iloc[0], 
-                                                    feature_names=model_features), show=False)
-                st.pyplot(plt.gcf())
-                plt.clf() # Clear the current figure to prevent overlap
+                fig, ax = plt.subplots()
+                shap.plots.bar(explanation, show=False)
+                st.pyplot(fig)
 
             elif shap_plot_type == "Waterfall":
-                if isinstance(shap_values, list):
-                    shap.plots.waterfall(shap.Explanation(values=shap_values[1][0], 
-                                                          base_values=explainer.expected_value[1], 
-                                                          data=user_data_aligned.iloc[0], 
-                                                          feature_names=model_features), show=False)
-                else:
-                    shap.plots.waterfall(shap.Explanation(values=shap_values[0], 
-                                                          base_values=explainer.expected_value, 
-                                                          data=user_data_aligned.iloc[0], 
-                                                          feature_names=model_features), show=False)
-                st.pyplot(plt.gcf())
-                plt.clf()
+                fig, ax = plt.subplots()
+                shap.plots.waterfall(explanation, show=False)
+                st.pyplot(fig)
 
             elif shap_plot_type == "Force Plot":
-                # Force plot requires the JS component, use st_shap wrapper
-                # For classification, explain the positive class (index 1)
-                if isinstance(shap_values, list):
-                    st_shap(shap.force_plot(explainer.expected_value[1], shap_values[1][0], user_data_aligned.iloc[0], feature_names=model_features))
-                else:
-                    st_shap(shap.force_plot(explainer.expected_value, shap_values[0], user_data_aligned.iloc[0], feature_names=model_features))
+                # Force plot uses its own JS-based rendering
+                st_shap(shap.force_plot(explanation.base_values, explanation.values, explanation.data, feature_names=explanation.feature_names))
 
         except Exception as e:
             st.error(f"Error generating SHAP plot: {e}. Please ensure the selected model and data are compatible with the chosen SHAP explainer and plot type.")
             st.info("For KernelExplainer, ensure `X_background` is representative and small enough for performance.")
-
-# Helper function for st_shap (from SHAP documentation)
-def st_shap(plot, height=None):
-    shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
-    st.components.v1.html(shap_html, height=height)
