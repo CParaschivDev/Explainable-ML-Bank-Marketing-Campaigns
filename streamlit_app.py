@@ -70,7 +70,7 @@ model_features = sample_data.columns.tolist()
 X_background = sample_data[model_features].head(100)
 X_background = X_background.apply(pd.to_numeric, errors='coerce').astype('float64')
 
-st.title("Bank Marketing Campaign Predictor 📈")
+st.title("Bank Marketing Campaign Predictor 📊")
 st.markdown("""
 Predict whether a bank customer will subscribe to a term deposit
 based on various input features and explore the explanations behind the predictions.
@@ -194,10 +194,12 @@ with tab2:
         else:
             base_val = explainer.expected_value
 
-        explanation = shap.Explanation(values=shap_vals[0],
-                                       base_values=base_val,
-                                       data=user_data_aligned.iloc[0],
-                                       feature_names=model_features)
+        explanation = shap.Explanation(
+            values=shap_vals[0],
+            base_values=base_val,
+            data=user_data_aligned.iloc[0].values,
+            feature_names=model_features
+        )
 
         if shap_plot_type == "Bar Plot":
             fig, _ = plt.subplots()
