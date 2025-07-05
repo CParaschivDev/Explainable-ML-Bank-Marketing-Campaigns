@@ -1,6 +1,6 @@
 age	duration	campaign	pdays	previous	emp.var.rate	cons.price.idx	cons.conf.idx	euribor3m	nr.employed	job_blue-collar	job_entrepreneur	job_housemaid	job_management	job_retired	job_self-employed	job_services	job_student	job_technician	job_unemployed	marital_married	marital_single	education_basic.6y	education_basic.9y	education_high.school	education_illiterate	education_professional.course	education_university.degree	default_unknown	housing_yes	loan_yes	contact_telephone	month_aug	month_dec	month_jul	month_jun	month_mar	month_may	month_nov	month_oct	month_sep	day_of_week_mon	day_of_week_thu	day_of_week_tue	day_of_week_wed	poutcome_nonexistent	poutcome_success	campaign_log
-40	300	2	999	0	1.1	93.994	-36.4	4.857	5191.0	0	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	1	0	1.098612
+40	300	2	999	0	1.1	93.994	-36.4	4.857	5191	0	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	1	0	1.098612
 55	220	1	999	0	-1.8	92.893	-46.2	1.299	5099.1	0	0	0	0	1	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	1	0	0.693147
-28	550	3	6	1	-0.1	93.2	-42.0	4.153	5195.8	0	0	0	0	0	0	0	1	0	0	0	1	0	0	1	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	1	0	0	0	1	1.386294
+28	550	3	6	1	-0.1	93.2	-42	4.153	5195.8	0	0	0	0	0	0	0	1	0	0	0	1	0	0	1	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	1	0	0	0	1	1.386294
 38	195	4	999	0	1.4	93.444	-36.1	4.964	5228.1	0	0	0	0	0	0	1	0	0	0	1	0	0	0	1	0	0	0	0	1	0	1	0	0	0	1	0	0	0	0	0	0	0	0	1	1	0	1.609438
 32	450	1	999	0	-1.7	94.055	-39.8	0.729	4991.6	1	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0	1	0	0	0	1	0	0	1	0	0.693147
