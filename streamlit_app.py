@@ -67,6 +67,7 @@ sample_data = load_sample_data()
 
 model_features = sample_data.columns.tolist()
 X_background = sample_data[model_features].head(100)
+X_background = X_background.apply(pd.to_numeric, errors='coerce')
 
 st.title("Bank Marketing Campaign Predictor 📈")
 st.markdown("""
