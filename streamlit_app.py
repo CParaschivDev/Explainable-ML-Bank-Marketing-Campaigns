@@ -194,7 +194,10 @@ with tab2:
         else:
             base_val = explainer.expected_value
 
-        explanation = shap.Explanation(values=shap_vals[0], base_values=base_val, data=user_data_aligned.iloc[0], feature_names=model_features)
+        explanation = shap.Explanation(values=shap_vals[0],
+                                       base_values=base_val,
+                                       data=user_data_aligned.iloc[0].values,
+                                       feature_names=model_features)
 
         if shap_plot_type == "Bar Plot":
             fig, _ = plt.subplots()
