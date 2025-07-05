@@ -102,7 +102,10 @@ user_input.update({
     'nr.employed': nr_employed,
     'contact_telephone': 1 if contact_telephone else 0,
     'poutcome_success': 1 if poutcome_success else 0,
-    'campaign_log': np.log(campaign + 1e-6)
+    'campaign_log': np.log(campaign + 1e-6),
+    'duration_log': np.log(duration + 1e-6),
+    'pdays_log': np.log(pdays + 1e-6),
+    'previous_log': np.log(previous + 1e-6),
 })
 
 user_df = pd.DataFrame([user_input]).reindex(columns=model_features, fill_value=0)
