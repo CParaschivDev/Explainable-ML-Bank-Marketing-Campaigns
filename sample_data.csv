@@ -1,6 +1,0 @@
-age,duration_log,campaign_log,pdays_log,previous_log,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed,default,housing,loan,job_admin.,job_blue-collar,job_management,job_technician,job_unknown,marital_single,marital_married,marital_divorced,marital_unknown,education_basic.4y,education_high.school,education_university.degree,education_unknown,contact_cellular,contact_telephone,month_may,month_jul,month_aug,month_nov,month_dec,day_of_week_mon,day_of_week_tue,day_of_week_wed,poutcome_nonexistent,poutcome_success
-40,0,1.098612,0,0,1.1,93.994,-36.4,4.857,5191.0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0
-55,0,0.693147,0,0,-1.8,92.893,-46.2,1.299,5099.1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0
-28,0,1.386294,0,0,-0.1,93.2,-42.0,4.153,5195.8,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1
-38,0,1.609438,0,0,1.4,93.444,-36.1,4.964,5228.1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,1,0
-32,0,0.693147,0,0,-1.7,94.055,-39.8,0.729,4991.6,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0
