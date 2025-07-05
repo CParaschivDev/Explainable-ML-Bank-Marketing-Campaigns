@@ -51,6 +51,7 @@ def load_sample_data(path="sample_data.csv"):
         if 'y' in data.columns:
             data = data.drop(columns=['y'])
         data = data.apply(pd.to_numeric, errors='coerce')
+        data = data.astype('float64')
         return data
     except FileNotFoundError:
         st.error(f"Sample data not found at '{path}'.")
@@ -67,7 +68,7 @@ sample_data = load_sample_data()
 
 model_features = sample_data.columns.tolist()
 X_background = sample_data[model_features].head(100)
-X_background = X_background.apply(pd.to_numeric, errors='coerce')
+X_background = X_background.apply(pd.to_numeric, errors='coerce').astype('float64')
 
 st.title("Bank Marketing Campaign Predictor 📈")
 st.markdown("""
@@ -140,7 +141,7 @@ user_input_dict.update({
 
 user_data = pd.DataFrame([user_input_dict])
 user_data_aligned = user_data.reindex(columns=model_features, fill_value=0)
-user_data_aligned = user_data_aligned.apply(pd.to_numeric, errors='coerce')
+user_data_aligned = user_data_aligned.apply(pd.to_numeric, errors='coerce').astype('float64')
 
 # --- Tabs ---
 tab1, tab2 = st.tabs(["📊 Predictions", "🔍 SHAP Explanation"])
