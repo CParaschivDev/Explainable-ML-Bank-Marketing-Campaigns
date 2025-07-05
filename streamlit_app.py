@@ -62,7 +62,7 @@ st.set_page_config(page_title="Bank Marketing Predictor 🏦", layout="wide")
 models = load_models()
 sample_data = load_sample_data()
 
-model_features = sample_data.columns.tolist()
+model_features = [col for col in sample_data.columns if col != 'y']
 
 if not all(feature in sample_data.columns for feature in model_features):
     st.error("Sample data does not contain all required features.")
