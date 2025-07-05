@@ -105,7 +105,13 @@ with col2:
 
 with col3:
     contact_telephone = not st.checkbox("Contacted via Cellular?", True)
+    contact_cellular = not contact_telephone
     poutcome_success = st.checkbox("Previous Outcome: Success?", False)
+    contact_cellular = 1 if contact_cellular else 0
+    day_of_week_fri = st.checkbox("Day of Week: Friday?", False)
+    education_basic_4y = st.checkbox("Education: Basic 4y?", False)
+    job_admin = st.checkbox("Job: Admin?", False)
+    marital_divorced = st.checkbox("Marital Status: Divorced?", False)
 
 # --- Preprocess Input ---
 user_input_dict = {feature: 0 for feature in model_features}
@@ -121,11 +127,16 @@ user_input_dict.update({
     'euribor3m': euribor3m,
     'nr.employed': nr_employed,
     'contact_telephone': 1 if contact_telephone else 0,
+    'contact_cellular': contact_cellular,
     'poutcome_success': 1 if poutcome_success else 0,
     'campaign_log': np.log(campaign + 1e-6),
     'pdays_log': np.log(pdays + 1e-6),
     'previous_log': np.log(previous + 1e-6),
-    'duration_log': np.log(duration + 1e-6)
+    'duration_log': np.log(duration + 1e-6),
+    'day_of_week_fri': 1 if day_of_week_fri else 0,
+    'education_basic.4y': 1 if education_basic_4y else 0,
+    'job_admin.': 1 if job_admin else 0,
+    'marital_divorced': 1 if marital_divorced else 0
 })
 
 user_data = pd.DataFrame([user_input_dict])
