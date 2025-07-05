@@ -7,12 +7,12 @@ import seaborn as sns
 import shap
 import os
 
-# --- Helper Function for SHAP Force Plots (Define before use) ---
+# --- Helper Function for SHAP Force Plots ---
 def st_shap(plot, height=None):
     shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
     st.components.v1.html(shap_html, height=height)
 
-# --- 1. Load Pretrained Models with Robust Error Handling ---
+# --- 1. Load Pretrained Models ---
 @st.cache_resource
 def load_models():
     models_dir = "models"
@@ -48,6 +48,9 @@ def load_sample_data(path="sample_data.csv"):
         data['pdays_log'] = np.log(data['pdays'] + 1e-6)
         data['previous_log'] = np.log(data['previous'] + 1e-6)
         data['duration_log'] = np.log(data['duration'] + 1e-6)
+        if 'y' in data.columns:
+            data = data.drop(columns=['y'])
+        data = data.apply(pd.to_numeric, errors='coerce')
         return data
     except FileNotFoundError:
         st.error(f"Sample data not found at '{path}'.")
@@ -62,12 +65,7 @@ st.set_page_config(page_title="Bank Marketing Predictor 🏦", layout="wide")
 models = load_models()
 sample_data = load_sample_data()
 
-model_features = [col for col in sample_data.columns if col != 'y']
-
-if not all(feature in sample_data.columns for feature in model_features):
-    st.error("Sample data does not contain all required features.")
-    st.stop()
-
+model_features = sample_data.columns.tolist()
 X_background = sample_data[model_features].head(100)
 
 st.title("Bank Marketing Campaign Predictor 📈")
@@ -141,6 +139,7 @@ user_input_dict.update({
 
 user_data = pd.DataFrame([user_input_dict])
 user_data_aligned = user_data.reindex(columns=model_features, fill_value=0)
+user_data_aligned = user_data_aligned.apply(pd.to_numeric, errors='coerce')
 
 # --- Tabs ---
 tab1, tab2 = st.tabs(["📊 Predictions", "🔍 SHAP Explanation"])
