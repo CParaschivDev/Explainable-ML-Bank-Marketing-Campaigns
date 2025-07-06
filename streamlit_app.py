@@ -185,7 +185,12 @@ with tab2:
         if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
             explainer = shap.TreeExplainer(model, X_background)
         else:
-            explainer = shap.KernelExplainer(model.predict_proba, X_background)
+            # Define a wrapper function for predict_proba to avoid potential binding issues
+            # and ensure it returns probabilities for the positive class
+            def predict_proba_wrapper(X):
+                return model.predict_proba(X)[:, 1]
+
+            explainer = shap.KernelExplainer(predict_proba_wrapper, X_background)
 
         # Get raw SHAP values
         shap_vals_raw = explainer.shap_values(user_data_aligned)
