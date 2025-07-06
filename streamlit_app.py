@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import shap
 import os
+import lime
+import lime.lime_tabular
 
 # --- Helper Function for SHAP Force Plots ---
 def st_shap(plot, height=None):
@@ -81,9 +83,14 @@ st.sidebar.header("App Controls")
 selected_models = st.sidebar.multiselect("Choose Models:", list(models.keys()), default=list(models.keys()))
 confidence_threshold = st.sidebar.slider("Confidence Threshold:", 0.0, 1.0, 0.5, 0.01)
 
-st.sidebar.header("SHAP Controls")
-shap_plot_type = st.sidebar.selectbox("SHAP Plot Type:", ("Bar Plot", "Waterfall", "Force Plot"))
-selected_shap_model_name = st.sidebar.selectbox("Model for SHAP:", list(models.keys()))
+st.sidebar.header("Explanation Controls")
+explanation_type = st.sidebar.selectbox("Explanation Type:", ("SHAP", "LIME"))
+
+if explanation_type == "SHAP":
+    shap_plot_type = st.sidebar.selectbox("SHAP Plot Type:", ("Bar Plot", "Waterfall", "Force Plot"))
+    selected_shap_model_name = st.sidebar.selectbox("Model for SHAP:", list(models.keys()))
+else: # LIME
+    selected_lime_model_name = st.sidebar.selectbox("Model for LIME:", list(models.keys()))
 
 # --- Input Form ---
 st.header("Customer Input")
@@ -179,59 +186,91 @@ with tab1:
             st.pyplot(fig)
 
 with tab2:
-    st.header(f"SHAP Explanation: {selected_shap_model_name}")
-    try:
-        model = models[selected_shap_model_name]
-        if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
-            explainer = shap.TreeExplainer(model, X_background)
-        else:
-            # Define a wrapper function for predict_proba to avoid potential binding issues
-            # and ensure it returns probabilities for the positive class
-            def predict_proba_wrapper(X):
-                return model.predict_proba(X)[:, 1]
+    if explanation_type == "SHAP":
+        st.header(f"SHAP Explanation: {selected_shap_model_name}")
+        try:
+            model = models[selected_shap_model_name]
+            if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
+                explainer = shap.TreeExplainer(model, X_background)
+            else:
+                # Define a wrapper function for predict_proba to avoid potential binding issues
+                # and ensure it returns probabilities for the positive class
+                def predict_proba_wrapper(X):
+                    return model.predict_proba(X)[:, 1]
 
-            explainer = shap.KernelExplainer(predict_proba_wrapper, X_background)
+                explainer = shap.KernelExplainer(predict_proba_wrapper, X_background)
 
-        # Get raw SHAP values
-        shap_vals_raw = explainer.shap_values(user_data_aligned)
+            # Get raw SHAP values
+            shap_vals_raw = explainer.shap_values(user_data_aligned)
 
-        # Determine the correct SHAP values and base value for the plot
-        if isinstance(shap_vals_raw, list):
-            # This case is for multi-output models where shap_vals_raw is a list of arrays,
-            # typically [shap_values_class_0, shap_values_class_1, ...]
-            # Each element in the list is (num_instances, num_features)
-            # We want the positive class (index 1) and the first instance
-            shap_values_for_plot = shap_vals_raw[1][0]
-            base_value_for_plot = explainer.expected_value[1]
-        elif shap_vals_raw.ndim == 3:
-            # This case is for multi-output models where shap_vals_raw is (num_instances, num_features, num_classes)
-            # We want the first instance, and the SHAP values for the positive class (index 1)
-            shap_values_for_plot = shap_vals_raw[0][:, 1]
-            base_value_for_plot = explainer.expected_value[1]
-        else: # shap_vals_raw.ndim == 2
-            # This case is for single-output models where shap_vals_raw is (num_instances, num_features)
-            # We want the first instance
-            shap_values_for_plot = shap_vals_raw[0]
-            base_value_for_plot = explainer.expected_value
+            # Determine the correct SHAP values and base value for the plot
+            if isinstance(shap_vals_raw, list):
+                # This case is for multi-output models where shap_vals_raw is a list of arrays,
+                # typically [shap_values_class_0, shap_values_class_1, ...]
+                # Each element in the list is (num_instances, num_features)
+                # We want the positive class (index 1) and the first instance
+                shap_values_for_plot = shap_vals_raw[1][0]
+                base_value_for_plot = explainer.expected_value[1]
+            elif shap_vals_raw.ndim == 3:
+                # This case is for multi-output models where shap_vals_raw is (num_instances, num_features, num_classes)
+                # We want the first instance, and the SHAP values for the positive class (index 1)
+                shap_values_for_plot = shap_vals_raw[0][:, 1]
+                base_value_for_plot = explainer.expected_value[1]
+            else: # shap_vals_raw.ndim == 2
+                # This case is for single-output models where shap_vals_raw is (num_instances, num_features)
+                # We want the first instance
+                shap_values_for_plot = shap_vals_raw[0]
+                base_value_for_plot = explainer.expected_value
 
-        # Create the Explanation object
-        explanation = shap.Explanation(
-            values=shap_values_for_plot,
-            base_values=base_value_for_plot,
-            data=np.array(user_data_aligned.iloc[0]),
-            feature_names=model_features
-        )
+            # Create the Explanation object
+            explanation = shap.Explanation(
+                values=shap_values_for_plot,
+                base_values=base_value_for_plot,
+                data=np.array(user_data_aligned.iloc[0]),
+                feature_names=model_features
+            )
 
-        if shap_plot_type == "Bar Plot":
-            fig, _ = plt.subplots()
-            shap.plots.bar(explanation, show=False)
+            if shap_plot_type == "Bar Plot":
+                fig, _ = plt.subplots()
+                shap.plots.bar(explanation, show=False)
+                st.pyplot(fig)
+            elif shap_plot_type == "Waterfall":
+                fig, _ = plt.subplots()
+                shap.plots.waterfall(explanation, show=False)
+                st.pyplot(fig)
+            elif shap_plot_type == "Force Plot":
+                # Force plot expects base_value, shap_values, and features directly
+                st_shap(shap.force_plot(base_value_for_plot, shap_values_for_plot, features=explanation.data, feature_names=explanation.feature_names))
+        except Exception as e:
+            st.error(f"SHAP error: {e}")
+    else: # LIME Explanation
+        st.header(f"LIME Explanation: {selected_lime_model_name}")
+        try:
+            model = models[selected_lime_model_name]
+            # LIME explainer
+            explainer = lime.lime_tabular.LimeTabularExplainer(
+                training_data=X_background.values,
+                feature_names=model_features,
+                class_names=['Not Subscribed', 'Subscribed'],
+                mode='classification'
+            )
+
+            # Explain the instance
+            # LIME expects a 1D numpy array for the instance to explain
+            explanation = explainer.explain_instance(
+                data_row=user_data_aligned.iloc[0].values,
+                predict_fn=model.predict_proba,
+                num_features=len(model_features)
+            )
+
+            # Display LIME explanation
+            fig = explanation.as_pyplot_figure()
             st.pyplot(fig)
-        elif shap_plot_type == "Waterfall":
-            fig, _ = plt.subplots()
-            shap.plots.waterfall(explanation, show=False)
-            st.pyplot(fig)
-        elif shap_plot_type == "Force Plot":
-            # Force plot expects base_value, shap_values, and features directly
-            st_shap(shap.force_plot(base_value_for_plot, shap_values_for_plot, features=explanation.data, feature_names=explanation.feature_names))
-    except Exception as e:
-        st.error(f"SHAP error: {e}")
+
+            st.markdown("---")
+            st.subheader("LIME Explanation Details")
+            for feature, weight in explanation.as_list():
+                st.write(f"- **{feature}**: {weight:.4f}")
+
+        except Exception as e:
+            st.error(f"LIME error: {e}")
