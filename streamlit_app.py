@@ -187,18 +187,29 @@ with tab2:
         else:
             explainer = shap.KernelExplainer(model.predict_proba, X_background)
 
+        # Get raw SHAP values
         shap_vals_raw = explainer.shap_values(user_data_aligned)
 
+        # Determine the correct SHAP values and base value for the plot
         if isinstance(shap_vals_raw, list):
-            # For multi-output models, shap_vals_raw is a list of arrays, one for each output.
-            # We typically want the SHAP values for the positive class (index 1).
-            shap_values_for_plot = shap_vals_raw[1][0] # Get the 1D array for the single instance, positive class
+            # This case is for multi-output models where shap_vals_raw is a list of arrays,
+            # typically [shap_values_class_0, shap_values_class_1, ...]
+            # Each element in the list is (num_instances, num_features)
+            # We want the positive class (index 1) and the first instance
+            shap_values_for_plot = shap_vals_raw[1][0]
             base_value_for_plot = explainer.expected_value[1]
-        else:
-            # For single-output models, shap_vals_raw is a single array.
-            shap_values_for_plot = shap_vals_raw[0] # Get the 1D array for the single instance
+        elif shap_vals_raw.ndim == 3:
+            # This case is for multi-output models where shap_vals_raw is (num_instances, num_features, num_classes)
+            # We want the first instance, and the SHAP values for the positive class (index 1)
+            shap_values_for_plot = shap_vals_raw[0][:, 1]
+            base_value_for_plot = explainer.expected_value[1]
+        else: # shap_vals_raw.ndim == 2
+            # This case is for single-output models where shap_vals_raw is (num_instances, num_features)
+            # We want the first instance
+            shap_values_for_plot = shap_vals_raw[0]
             base_value_for_plot = explainer.expected_value
 
+        # Create the Explanation object
         explanation = shap.Explanation(
             values=shap_values_for_plot,
             base_values=base_value_for_plot,
