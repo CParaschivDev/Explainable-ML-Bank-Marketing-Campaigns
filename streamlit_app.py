@@ -187,16 +187,21 @@ with tab2:
         else:
             explainer = shap.KernelExplainer(model.predict_proba, X_background)
 
-        shap_vals = explainer.shap_values(user_data_aligned)
-        if isinstance(shap_vals, list):
-            shap_vals = shap_vals[1]
-            base_val = explainer.expected_value[1]
+        shap_vals_raw = explainer.shap_values(user_data_aligned)
+
+        if isinstance(shap_vals_raw, list):
+            # For multi-output models, shap_vals_raw is a list of arrays, one for each output.
+            # We typically want the SHAP values for the positive class (index 1).
+            shap_values_for_plot = shap_vals_raw[1][0] # Get the 1D array for the single instance, positive class
+            base_value_for_plot = explainer.expected_value[1]
         else:
-            base_val = explainer.expected_value
+            # For single-output models, shap_vals_raw is a single array.
+            shap_values_for_plot = shap_vals_raw[0] # Get the 1D array for the single instance
+            base_value_for_plot = explainer.expected_value
 
         explanation = shap.Explanation(
-            values=np.array(shap_vals[0][:, 1]), # Select the second column (index 1) for the waterfall plot
-            base_values=np.array(base_val),
+            values=shap_values_for_plot,
+            base_values=base_value_for_plot,
             data=np.array(user_data_aligned.iloc[0]),
             feature_names=model_features
         )
@@ -210,6 +215,7 @@ with tab2:
             shap.plots.waterfall(explanation, show=False)
             st.pyplot(fig)
         elif shap_plot_type == "Force Plot":
-            st_shap(shap.force_plot(base_val, explanation.values, features=explanation.data, feature_names=explanation.feature_names))
+            # Force plot expects base_value, shap_values, and features directly
+            st_shap(shap.force_plot(base_value_for_plot, shap_values_for_plot, features=explanation.data, feature_names=explanation.feature_names))
     except Exception as e:
         st.error(f"SHAP error: {e}")
