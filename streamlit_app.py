@@ -195,7 +195,7 @@ with tab2:
             base_val = explainer.expected_value
 
         explanation = shap.Explanation(
-            values=np.array(shap_vals[0]),
+            values=np.array(shap_vals[0][:, 1]), # Select the second column (index 1) for the waterfall plot
             base_values=np.array(base_val),
             data=np.array(user_data_aligned.iloc[0]),
             feature_names=model_features
