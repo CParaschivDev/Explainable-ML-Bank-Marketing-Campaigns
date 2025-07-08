@@ -63,7 +63,7 @@ def load_sample_data(path="sample_data.csv"):
         st.stop()
 
 # --- Page Setup ---
-st.set_page_config(page_title="Bank Marketing Predictor 🏦", layout="wide")
+st.set_page_config(page_title="Bank Marketing Predictor", layout="wide")
 
 models = load_models()
 sample_data = load_sample_data()
