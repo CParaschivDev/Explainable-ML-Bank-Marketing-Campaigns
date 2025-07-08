@@ -72,7 +72,7 @@ model_features = sample_data.columns.tolist()
 X_background = sample_data[model_features].head(100)
 X_background = X_background.apply(pd.to_numeric, errors='coerce').astype('float64')
 
-st.title("Bank Marketing Campaign Predictor 📊")
+st.title("Bank Marketing Campaign Predictor")
 st.markdown("""
 Predict whether a bank customer will subscribe to a term deposit
 based on various input features and explore the explanations behind the predictions.
