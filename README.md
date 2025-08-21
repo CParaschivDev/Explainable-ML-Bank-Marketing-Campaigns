@@ -19,12 +19,19 @@ It provides an **interactive Streamlit dashboard** with built-in model interpret
 ---
 
 ## 📂 Project Structure
-├── models/ # Pre-trained ML models (.pkl)
-├── sample_data.csv # Example dataset
-├── streamlit_app.py # Streamlit dashboard entry point
-├── requirements.txt # Dependencies
-├── LICENSE # License file
-└── README.md # Project documentation
+
+### ├── models/ # Pre-trained ML models (.pkl)
+
+### ├── sample_data.csv # Example dataset
+
+### ├── streamlit_app.py # Streamlit dashboard entry point
+
+### ├── requirements.txt # Dependencies
+
+### ├── LICENSE # License file
+
+### └── README.md # Project documentation
+
 
 ---
 
