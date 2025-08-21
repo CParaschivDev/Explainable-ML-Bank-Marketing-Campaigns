@@ -8,6 +8,7 @@ import shap
 import os
 import lime
 import lime.lime_tabular
+import io
 
 # --- Helper Function for SHAP Force Plots ---
 def st_shap(plot, height=None):
@@ -86,43 +87,132 @@ based on various input features and explore the explanations behind the predicti
 
 # --- Sidebar Controls ---
 st.sidebar.header("App Controls")
-selected_models = st.sidebar.multiselect("Choose Models:", list(models.keys()), default=list(models.keys()))
-confidence_threshold = st.sidebar.slider("Confidence Threshold:", 0.0, 1.0, 0.5, 0.01)
+selected_models = st.sidebar.multiselect(
+    "Choose Models:", list(models.keys()), default=list(models.keys())
+)
+confidence_threshold = st.sidebar.slider(
+    "Confidence Threshold:", 0.0, 1.0, 0.5, 0.01,
+    help="Minimum probability required to label a customer as subscribed"
+)
 
 st.sidebar.header("Explanation Controls")
 explanation_type = st.sidebar.selectbox("Explanation Type:", ("SHAP", "LIME"))
 
 if explanation_type == "SHAP":
-    shap_plot_type = st.sidebar.selectbox("SHAP Plot Type:", ("Bar Plot", "Waterfall", "Force Plot"))
+    shap_plot_type = st.sidebar.selectbox(
+        "SHAP Plot Type:", ("Bar Plot", "Waterfall", "Force Plot", "Summary Plot")
+    )
     selected_shap_model_name = st.sidebar.selectbox("Model for SHAP:", list(models.keys()))
-else: # LIME
+else:  # LIME
     selected_lime_model_name = st.sidebar.selectbox("Model for LIME:", list(models.keys()))
+
+st.sidebar.header("Appearance")
+theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark"])
+if theme_choice == "Dark":
+    st.markdown(
+        """
+        <style>
+        .stApp {background-color: #0e1117; color: white;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+if st.sidebar.button("Load Example Profile"):
+    example_values = {
+        "age_input": 40,
+        "duration_input": 300,
+        "campaign_input": 2,
+        "pdays_input": 999,
+        "previous_input": 0,
+        "emp_var_rate_input": 1.1,
+        "cons_price_idx_input": 93.9,
+        "cons_conf_idx_input": -42.7,
+        "euribor3m_input": 4.8,
+        "nr_employed_input": 5191.0,
+        "contact_telephone_input": True,
+        "poutcome_success_input": False,
+        "day_of_week_mon_input": False,
+        "education_basic_6y_input": False,
+        "job_management_input": False,
+        "marital_single_input": False,
+    }
+    for k, v in example_values.items():
+        st.session_state[k] = v
 
 # --- Input Form ---
 st.header("Customer Input")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    age = st.slider("Age", 18, 100, 40)
-    duration = st.slider("Duration (s)", 0, 5000, 300)
-    campaign = st.number_input("Campaign Contacts", 1, 60, 2)
-    pdays = st.number_input("Days Since Last Contact", 0, 999, 999)
-    previous = st.number_input("Previous Contacts", 0, 10, 0)
+    age = st.slider(
+        "Age", 18, 100, 40, key="age_input",
+        help="Customer age in years"
+    )
+    duration = st.slider(
+        "Duration (s)", 0, 5000, 300, key="duration_input",
+        help="Last contact duration in seconds"
+    )
+    campaign = st.number_input(
+        "Campaign Contacts", 1, 60, 2, key="campaign_input",
+        help="Number of contacts performed during this campaign"
+    )
+    pdays = st.number_input(
+        "Days Since Last Contact", 0, 999, 999, key="pdays_input",
+        help="Days since client was last contacted (-1 means never)"
+    )
+    previous = st.number_input(
+        "Previous Contacts", 0, 10, 0, key="previous_input",
+        help="Number of contacts before this campaign"
+    )
 
 with col2:
-    emp_var_rate = st.number_input("Employment Var. Rate", -4.0, 2.0, 1.1, step=0.1)
-    cons_price_idx = st.number_input("Consumer Price Index", 92.0, 95.0, 93.9, step=0.1)
-    cons_conf_idx = st.number_input("Consumer Confidence Index", -51.0, -26.0, -42.7, step=0.1)
-    euribor3m = st.number_input("Euribor 3m", 0.5, 5.5, 4.8, step=0.1)
-    nr_employed = st.number_input("Number Employed", 4900.0, 5300.0, 5191.0, step=0.1)
+    emp_var_rate = st.number_input(
+        "Employment Var. Rate", -4.0, 2.0, 1.1, step=0.1, key="emp_var_rate_input",
+        help="Quarterly employment variation rate"
+    )
+    cons_price_idx = st.number_input(
+        "Consumer Price Index", 92.0, 95.0, 93.9, step=0.1, key="cons_price_idx_input",
+        help="Consumer price index"
+    )
+    cons_conf_idx = st.number_input(
+        "Consumer Confidence Index", -51.0, -26.0, -42.7, step=0.1, key="cons_conf_idx_input",
+        help="Consumer confidence index"
+    )
+    euribor3m = st.number_input(
+        "Euribor 3m", 0.5, 5.5, 4.8, step=0.1, key="euribor3m_input",
+        help="Euribor 3-month rate"
+    )
+    nr_employed = st.number_input(
+        "Number Employed", 4900.0, 5300.0, 5191.0, step=0.1, key="nr_employed_input",
+        help="Number of employees"
+    )
 
 with col3:
-    contact_telephone = st.checkbox("Contacted via Telephone?", True)
-    poutcome_success = st.checkbox("Previous Outcome: Success?", False)
-    day_of_week_mon = st.checkbox("Day of Week: Monday?", False)
-    education_basic_6y = st.checkbox("Education: Basic 6y?", False)
-    job_management = st.checkbox("Job: Management?", False)
-    marital_single = st.checkbox("Marital Status: Single?", False)
+    contact_telephone = st.checkbox(
+        "Contacted via Telephone?", True, key="contact_telephone_input",
+        help="Was the client contacted via telephone?"
+    )
+    poutcome_success = st.checkbox(
+        "Previous Outcome: Success?", False, key="poutcome_success_input",
+        help="Was the outcome of the previous campaign successful?"
+    )
+    day_of_week_mon = st.checkbox(
+        "Day of Week: Monday?", False, key="day_of_week_mon_input",
+        help="Was the last contact on a Monday?"
+    )
+    education_basic_6y = st.checkbox(
+        "Education: Basic 6y?", False, key="education_basic_6y_input",
+        help="Does the client have basic 6 years education?"
+    )
+    job_management = st.checkbox(
+        "Job: Management?", False, key="job_management_input",
+        help="Is the client's job management?"
+    )
+    marital_single = st.checkbox(
+        "Marital Status: Single?", False, key="marital_single_input",
+        help="Is the client single?"
+    )
 
 # --- Preprocess Input ---
 user_input_dict = {feature: 0 for feature in model_features}
@@ -154,7 +244,7 @@ user_data_aligned = user_data.reindex(columns=model_features, fill_value=0)
 user_data_aligned = user_data_aligned.apply(pd.to_numeric, errors='coerce').astype('float64')
 
 # --- Tabs ---
-tab1, tab2 = st.tabs(["📊 Predictions", "🔍 SHAP Explanation"])
+tab1, tab2, tab3 = st.tabs(["📊 Predictions", "🔍 Explanation", "📁 Batch Predictions"])
 
 with tab1:
     st.header("Prediction Results")
@@ -187,6 +277,18 @@ with tab1:
             ax.set_ylabel("P=Subscribed")
             ax.set_title("Model Confidences")
             st.pyplot(fig)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png")
+            st.download_button(
+                "Download confidence chart",
+                buf.getvalue(),
+                file_name="confidences.png",
+                mime="image/png",
+            )
+        csv_pred = predictions_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download predictions", csv_pred, "predictions.csv", "text/csv"
+        )
 
 with tab2:
     if explanation_type == "SHAP":
@@ -242,8 +344,32 @@ with tab2:
                 shap.plots.waterfall(explanation, show=False)
                 st.pyplot(fig)
             elif shap_plot_type == "Force Plot":
-                # Force plot expects base_value, shap_values, and features directly
-                st_shap(shap.force_plot(base_value_for_plot, shap_values_for_plot, features=explanation.data, feature_names=explanation.feature_names))
+                st_shap(
+                    shap.force_plot(
+                        base_value_for_plot,
+                        shap_values_for_plot,
+                        features=explanation.data,
+                        feature_names=explanation.feature_names,
+                    )
+                )
+                fig = None
+            elif shap_plot_type == "Summary Plot":
+                fig = plt.figure()
+                shap_values_bg = explainer.shap_values(X_background)
+                if isinstance(shap_values_bg, list):
+                    shap.summary_plot(shap_values_bg[1], X_background, show=False)
+                else:
+                    shap.summary_plot(shap_values_bg, X_background, show=False)
+                st.pyplot(fig)
+            if shap_plot_type != "Force Plot":
+                buf = io.BytesIO()
+                fig.savefig(buf, format="png")
+                st.download_button(
+                    "Download plot",
+                    buf.getvalue(),
+                    file_name="shap_plot.png",
+                    mime="image/png",
+                )
         except Exception as e:
             st.error(f"SHAP error: {e}")
     else: # LIME Explanation
@@ -269,6 +395,14 @@ with tab2:
             # Display LIME explanation
             fig = explanation.as_pyplot_figure()
             st.pyplot(fig)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png")
+            st.download_button(
+                "Download plot",
+                buf.getvalue(),
+                file_name="lime_plot.png",
+                mime="image/png",
+            )
 
             st.markdown("---")
             st.subheader("LIME Explanation Details")
@@ -277,3 +411,37 @@ with tab2:
 
         except Exception as e:
             st.error(f"LIME error: {e}")
+
+with tab3:
+    st.header("Batch Predictions")
+    uploaded_file = st.file_uploader(
+        "Upload CSV", type="csv", help="File must include the same feature columns as sample_data.csv"
+    )
+    if uploaded_file is not None:
+        batch_df = pd.read_csv(uploaded_file)
+        for col in ["campaign", "pdays", "previous", "duration"]:
+            if col in batch_df.columns:
+                batch_df[f"{col}_log"] = np.log(batch_df[col] + 1e-6)
+        bool_cols = batch_df.select_dtypes(include=["object"]).columns
+        if len(bool_cols) > 0:
+            batch_df[bool_cols] = batch_df[bool_cols].replace({"True": 1, "False": 0})
+        batch_df = batch_df.reindex(columns=model_features, fill_value=0)
+        batch_df = batch_df.apply(pd.to_numeric, errors="coerce").astype("float64")
+        results_df = batch_df.copy()
+        for model_name in selected_models:
+            model = models[model_name]
+            try:
+                probas = model.predict_proba(batch_df)[:, 1]
+                results_df[f"{model_name}_prob"] = probas
+                results_df[f"{model_name}_pred"] = np.where(
+                    probas >= confidence_threshold, "Subscribed", "Not Subscribed"
+                )
+            except Exception as e:
+                st.error(f"Error with {model_name}: {e}")
+        st.dataframe(results_df, use_container_width=True)
+        csv_res = results_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download results", csv_res, "batch_predictions.csv", "text/csv"
+        )
+    else:
+        st.info("Upload a CSV file to perform batch predictions.")
