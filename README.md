@@ -1,9 +1,11 @@
 # Explainable ML for Bank Marketing Campaigns
 
-This project implements and explains **Machine Learning models** for predicting customer subscription to bank term deposits.  
-It provides an **interactive Streamlit dashboard** with built-in model interpretability (LIME and SHAP) to help understand which features drive predictions.
+This project implements and explains **Machine Learning models** for predicting customer subscription to bank term deposits, with explanations powered by **LIME** and **SHAP**.
+It provides an **interactive Streamlit dashboard** with built-in model interpretability to help understand which features drive predictions.
 
 SHAP (SHapley Additive exPlanations) values quantify the contribution of each feature to a prediction, offering both global and local insight into model behavior.
+
+LIME (Local Interpretable Model-Agnostic Explanations) approximates the model locally to highlight the features that influence individual predictions.
 
 ---
 
@@ -14,7 +16,7 @@ SHAP (SHapley Additive exPlanations) values quantify the contribution of each fe
   - Naive Bayes
   - K-Nearest Neighbors (KNN)
 - 📊 Model comparison with accuracy scores
-- 🔍 Local Interpretable Model-Agnostic Explanations (**LIME**) for feature importance
+- 🔍 Local and global interpretability with **LIME** and **SHAP** for feature importance
 - 🖥️ Interactive **Streamlit dashboard** for predictions and visualizations
 - 📂 Pre-trained models available in the `models/` directory
 
