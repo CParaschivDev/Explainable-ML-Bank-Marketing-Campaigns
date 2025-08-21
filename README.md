@@ -18,6 +18,9 @@ LIME (Local Interpretable Model-Agnostic Explanations) approximates the model lo
 - 📊 Model comparison with accuracy scores
 - 🔍 Local and global interpretability with **LIME** and **SHAP** for feature importance
 - 🖥️ Interactive **Streamlit dashboard** for predictions and visualizations
+- 📁 Batch prediction via CSV uploads
+- 🎛️ Input presets and light/dark theme toggle
+- 📥 Downloadable prediction and explanation outputs
 - 📂 Pre-trained models available in the `models/` directory
 
 ---
