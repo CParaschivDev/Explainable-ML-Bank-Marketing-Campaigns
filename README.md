@@ -22,7 +22,7 @@ It provides an **interactive Streamlit dashboard** with built-in model interpret
 
 ### ├── models/ # Pre-trained ML models (.pkl)
 
-### ├── sample_data.csv # Example dataset
+### ├── sample_data.csv # Example dataset. Available at: https://www.kaggle.com/datasets/yufengsui/portuguese-bank-marketing-data-set
 
 ### ├── streamlit_app.py # Streamlit dashboard entry point
 
