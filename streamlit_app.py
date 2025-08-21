@@ -52,6 +52,12 @@ def load_sample_data(path="sample_data.csv"):
         data['duration_log'] = np.log(data['duration'] + 1e-6)
         if 'y' in data.columns:
             data = data.drop(columns=['y'])
+
+        # Convert boolean columns stored as strings to numeric values
+        bool_cols = data.select_dtypes(include=['object']).columns
+        if len(bool_cols) > 0:
+            data[bool_cols] = data[bool_cols].replace({'True': 1, 'False': 0})
+
         data = data.apply(pd.to_numeric, errors='coerce')
         data = data.astype('float64')
         return data
