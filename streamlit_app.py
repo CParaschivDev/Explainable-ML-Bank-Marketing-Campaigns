@@ -118,26 +118,51 @@ if theme_choice == "Dark":
         unsafe_allow_html=True,
     )
 
+default_values = {
+    "age_input": 40,
+    "duration_input": 300,
+    "campaign_input": 2,
+    "pdays_input": 999,
+    "previous_input": 0,
+    "emp_var_rate_input": 1.1,
+    "cons_price_idx_input": 93.9,
+    "cons_conf_idx_input": -42.7,
+    "euribor3m_input": 4.8,
+    "nr_employed_input": 5191.0,
+    "contact_telephone_input": True,
+    "poutcome_success_input": False,
+    "day_of_week_mon_input": False,
+    "education_basic_6y_input": False,
+    "job_management_input": False,
+    "marital_single_input": False,
+}
+
 if st.sidebar.button("Load Example Profile"):
+    # Populate the form with values from the first row of the sample dataset
+    example_row = sample_data.iloc[0]
     example_values = {
-        "age_input": 40,
-        "duration_input": 300,
-        "campaign_input": 2,
-        "pdays_input": 999,
-        "previous_input": 0,
-        "emp_var_rate_input": 1.1,
-        "cons_price_idx_input": 93.9,
-        "cons_conf_idx_input": -42.7,
-        "euribor3m_input": 4.8,
-        "nr_employed_input": 5191.0,
-        "contact_telephone_input": True,
-        "poutcome_success_input": False,
-        "day_of_week_mon_input": False,
-        "education_basic_6y_input": False,
-        "job_management_input": False,
-        "marital_single_input": False,
+        "age_input": int(example_row["age"]),
+        "duration_input": int(example_row["duration"]),
+        "campaign_input": int(example_row["campaign"]),
+        "pdays_input": int(example_row["pdays"]),
+        "previous_input": int(example_row["previous"]),
+        "emp_var_rate_input": float(example_row["emp.var.rate"]),
+        "cons_price_idx_input": float(example_row["cons.price.idx"]),
+        "cons_conf_idx_input": float(example_row["cons.conf.idx"]),
+        "euribor3m_input": float(example_row["euribor3m"]),
+        "nr_employed_input": float(example_row["nr.employed"]),
+        "contact_telephone_input": bool(example_row["contact_telephone"]),
+        "poutcome_success_input": bool(example_row["poutcome_success"]),
+        "day_of_week_mon_input": bool(example_row["day_of_week_mon"]),
+        "education_basic_6y_input": bool(example_row["education_basic.6y"]),
+        "job_management_input": bool(example_row["job_management"]),
+        "marital_single_input": bool(example_row["marital_single"]),
     }
     for k, v in example_values.items():
+        st.session_state[k] = v
+
+if st.sidebar.button("Reset Inputs"):
+    for k, v in default_values.items():
         st.session_state[k] = v
 
 # --- Input Form ---
