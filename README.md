@@ -76,3 +76,7 @@ Feel free to open an issue or submit a pull request to enhance features, improve
 
 ## 📜 License
 This project is licensed under the MIT License.
+
+## 📚 References
+- [LIME Documentation](https://marcotcr.github.io/lime/)
+- [SHAP Documentation](https://shap.readthedocs.io/)
