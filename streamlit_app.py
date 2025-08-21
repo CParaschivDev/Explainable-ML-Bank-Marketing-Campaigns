@@ -118,6 +118,25 @@ if theme_choice == "Dark":
         unsafe_allow_html=True,
     )
 
+default_values = {
+    "age_input": 40,
+    "duration_input": 300,
+    "campaign_input": 2,
+    "pdays_input": 999,
+    "previous_input": 0,
+    "emp_var_rate_input": 1.1,
+    "cons_price_idx_input": 93.9,
+    "cons_conf_idx_input": -42.7,
+    "euribor3m_input": 4.8,
+    "nr_employed_input": 5191.0,
+    "contact_telephone_input": True,
+    "poutcome_success_input": False,
+    "day_of_week_mon_input": False,
+    "education_basic_6y_input": False,
+    "job_management_input": False,
+    "marital_single_input": False,
+}
+
 if st.sidebar.button("Load Example Profile"):
     example_values = {
         "age_input": 40,
@@ -138,6 +157,10 @@ if st.sidebar.button("Load Example Profile"):
         "marital_single_input": False,
     }
     for k, v in example_values.items():
+        st.session_state[k] = v
+
+if st.sidebar.button("Reset Inputs"):
+    for k, v in default_values.items():
         st.session_state[k] = v
 
 # --- Input Form ---
