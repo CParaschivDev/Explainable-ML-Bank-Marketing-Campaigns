@@ -3,6 +3,8 @@
 This project implements and explains **Machine Learning models** for predicting customer subscription to bank term deposits.  
 It provides an **interactive Streamlit dashboard** with built-in model interpretability (LIME and SHAP) to help understand which features drive predictions.
 
+SHAP (SHapley Additive exPlanations) values quantify the contribution of each feature to a prediction, offering both global and local insight into model behavior.
+
 ---
 
 ## 🚀 Features
