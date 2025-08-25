@@ -107,7 +107,7 @@ else:  # LIME
     selected_lime_model_name = st.sidebar.selectbox("Model for LIME:", list(models.keys()))
 
 st.sidebar.header("Appearance")
-theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark"])
+theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark", "Psychedelic"])
 if theme_choice == "Dark":
     st.markdown(
         """
@@ -117,6 +117,38 @@ if theme_choice == "Dark":
         """,
         unsafe_allow_html=True,
     )
+elif theme_choice == "Psychedelic":
+    st.markdown(
+        """
+        <style>
+        @keyframes psychedelic-bg {
+            0% {background-color: #ff00ff;}
+            25% {background-color: #00ffff;}
+            50% {background-color: #ffff00;}
+            75% {background-color: #ff6600;}
+            100% {background-color: #ff00ff;}
+        }
+        .stApp {
+            animation: psychedelic-bg 10s infinite;
+            color: white;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+accent_color = st.sidebar.color_picker("Accent Color", "#FF4B4B")
+st.markdown(
+    f"""
+    <style>
+        h1, h2, h3, h4, h5, h6 {{ color: {accent_color}; }}
+        .stProgress > div > div > div > div {{ background-color: {accent_color}; }}
+        div[data-testid="metric-value"] {{ color: {accent_color}; }}
+        div[data-testid="metric-label"] {{ color: {accent_color}; }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 default_values = {
     "age_input": 40,
@@ -293,8 +325,17 @@ with tab1:
 
         st.dataframe(predictions_df, use_container_width=True)
         if confidences:
+            prog_cols = st.columns(len(confidences))
+            for col, name, conf in zip(prog_cols, selected_models, confidences):
+                with col:
+                    st.metric(name, f"{conf:.2f}")
+                    st.progress(conf)
             vote = "Subscribed" if sum(predictions) >= len(predictions)/2 else "Not Subscribed"
             st.markdown(f"**Ensemble Vote:** `{vote}`")
+            if vote == "Subscribed":
+                st.balloons()
+            else:
+                st.snow()
             st.markdown(f"**Avg Confidence:** `{np.mean(confidences):.2f}`")
             fig, ax = plt.subplots()
             sns.barplot(x=selected_models, y=confidences, ax=ax)
