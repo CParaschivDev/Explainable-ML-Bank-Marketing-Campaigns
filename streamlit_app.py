@@ -137,6 +137,15 @@ elif theme_choice == "Psychedelic":
         unsafe_allow_html=True,
     )
 
+with st.sidebar.expander("About"):
+    st.write(
+        "Interactive dashboard for predicting term deposit subscriptions "
+        "with explainable machine learning models."
+    )
+
+if "prediction_ready" not in st.session_state:
+    st.session_state["prediction_ready"] = False
+
 default_values = {
     "age_input": 40,
     "duration_input": 300,
@@ -179,84 +188,91 @@ if st.sidebar.button("Load Example Profile"):
     }
     for k, v in example_values.items():
         st.session_state[k] = v
+    st.session_state["prediction_ready"] = False
 
 if st.sidebar.button("Reset Inputs"):
     for k, v in default_values.items():
         st.session_state[k] = v
+    st.session_state["prediction_ready"] = False
 
 # --- Input Form ---
 st.header("Customer Input")
-col1, col2, col3 = st.columns(3)
+with st.form("customer_form"):
+    col1, col2, col3 = st.columns(3)
 
-with col1:
-    age = st.slider(
-        "Age", 18, 100, 40, key="age_input",
-        help="Customer age in years"
-    )
-    duration = st.slider(
-        "Duration (s)", 0, 5000, 300, key="duration_input",
-        help="Last contact duration in seconds"
-    )
-    campaign = st.number_input(
-        "Campaign Contacts", 1, 60, 2, key="campaign_input",
-        help="Number of contacts performed during this campaign"
-    )
-    pdays = st.number_input(
-        "Days Since Last Contact", 0, 999, 999, key="pdays_input",
-        help="Days since client was last contacted (-1 means never)"
-    )
-    previous = st.number_input(
-        "Previous Contacts", 0, 10, 0, key="previous_input",
-        help="Number of contacts before this campaign"
-    )
+    with col1:
+        age = st.slider(
+            "Age", 18, 100, 40, key="age_input",
+            help="Customer age in years"
+        )
+        duration = st.slider(
+            "Duration (s)", 0, 5000, 300, key="duration_input",
+            help="Last contact duration in seconds"
+        )
+        campaign = st.number_input(
+            "Campaign Contacts", 1, 60, 2, key="campaign_input",
+            help="Number of contacts performed during this campaign"
+        )
+        pdays = st.number_input(
+            "Days Since Last Contact", 0, 999, 999, key="pdays_input",
+            help="Days since client was last contacted (-1 means never)"
+        )
+        previous = st.number_input(
+            "Previous Contacts", 0, 10, 0, key="previous_input",
+            help="Number of contacts before this campaign"
+        )
 
-with col2:
-    emp_var_rate = st.number_input(
-        "Employment Var. Rate", -4.0, 2.0, 1.1, step=0.1, key="emp_var_rate_input",
-        help="Quarterly employment variation rate"
-    )
-    cons_price_idx = st.number_input(
-        "Consumer Price Index", 92.0, 95.0, 93.9, step=0.1, key="cons_price_idx_input",
-        help="Consumer price index"
-    )
-    cons_conf_idx = st.number_input(
-        "Consumer Confidence Index", -51.0, -26.0, -42.7, step=0.1, key="cons_conf_idx_input",
-        help="Consumer confidence index"
-    )
-    euribor3m = st.number_input(
-        "Euribor 3m", 0.5, 5.5, 4.8, step=0.1, key="euribor3m_input",
-        help="Euribor 3-month rate"
-    )
-    nr_employed = st.number_input(
-        "Number Employed", 4900.0, 5300.0, 5191.0, step=0.1, key="nr_employed_input",
-        help="Number of employees"
-    )
+    with col2:
+        emp_var_rate = st.number_input(
+            "Employment Var. Rate", -4.0, 2.0, 1.1, step=0.1, key="emp_var_rate_input",
+            help="Quarterly employment variation rate"
+        )
+        cons_price_idx = st.number_input(
+            "Consumer Price Index", 92.0, 95.0, 93.9, step=0.1, key="cons_price_idx_input",
+            help="Consumer price index"
+        )
+        cons_conf_idx = st.number_input(
+            "Consumer Confidence Index", -51.0, -26.0, -42.7, step=0.1, key="cons_conf_idx_input",
+            help="Consumer confidence index"
+        )
+        euribor3m = st.number_input(
+            "Euribor 3m", 0.5, 5.5, 4.8, step=0.1, key="euribor3m_input",
+            help="Euribor 3-month rate"
+        )
+        nr_employed = st.number_input(
+            "Number Employed", 4900.0, 5300.0, 5191.0, step=0.1, key="nr_employed_input",
+            help="Number of employees"
+        )
 
-with col3:
-    contact_telephone = st.checkbox(
-        "Contacted via Telephone?", True, key="contact_telephone_input",
-        help="Was the client contacted via telephone?"
-    )
-    poutcome_success = st.checkbox(
-        "Previous Outcome: Success?", False, key="poutcome_success_input",
-        help="Was the outcome of the previous campaign successful?"
-    )
-    day_of_week_mon = st.checkbox(
-        "Day of Week: Monday?", False, key="day_of_week_mon_input",
-        help="Was the last contact on a Monday?"
-    )
-    education_basic_6y = st.checkbox(
-        "Education: Basic 6y?", False, key="education_basic_6y_input",
-        help="Does the client have basic 6 years education?"
-    )
-    job_management = st.checkbox(
-        "Job: Management?", False, key="job_management_input",
-        help="Is the client's job management?"
-    )
-    marital_single = st.checkbox(
-        "Marital Status: Single?", False, key="marital_single_input",
-        help="Is the client single?"
-    )
+    with col3:
+        contact_telephone = st.checkbox(
+            "Contacted via Telephone?", True, key="contact_telephone_input",
+            help="Was the client contacted via telephone?"
+        )
+        poutcome_success = st.checkbox(
+            "Previous Outcome: Success?", False, key="poutcome_success_input",
+            help="Was the outcome of the previous campaign successful?"
+        )
+        day_of_week_mon = st.checkbox(
+            "Day of Week: Monday?", False, key="day_of_week_mon_input",
+            help="Was the last contact on a Monday?"
+        )
+        education_basic_6y = st.checkbox(
+            "Education: Basic 6y?", False, key="education_basic_6y_input",
+            help="Does the client have basic 6 years education?"
+        )
+        job_management = st.checkbox(
+            "Job: Management?", False, key="job_management_input",
+            help="Is the client's job management?"
+        )
+        marital_single = st.checkbox(
+            "Marital Status: Single?", False, key="marital_single_input",
+            help="Is the client single?"
+        )
+
+    submitted = st.form_submit_button("Predict")
+    if submitted:
+        st.session_state["prediction_ready"] = True
 
 # --- Preprocess Input ---
 user_input_dict = {feature: 0 for feature in model_features}
@@ -292,23 +308,26 @@ tab1, tab2, tab3 = st.tabs(["📊 Predictions", "🔍 Explanation", "📁 Batch 
 
 with tab1:
     st.header("Prediction Results")
-    if not selected_models:
+    if not st.session_state.get("prediction_ready"):
+        st.info("Fill in the customer form and hit Predict to view results.")
+    elif not selected_models:
         st.warning("Select at least one model.")
     else:
         st.dataframe(user_data_aligned)
         predictions_df = pd.DataFrame(columns=["Model", "Prediction", "Confidence"])
         confidences, predictions = [], []
 
-        for model_name in selected_models:
-            model = models[model_name]
-            try:
-                proba = model.predict_proba(user_data_aligned)[:, 1][0]
-                label = "Subscribed" if proba >= confidence_threshold else "Not Subscribed"
-                predictions_df.loc[len(predictions_df)] = [model_name, label, f"{proba:.2f}"]
-                confidences.append(proba)
-                predictions.append(1 if label == "Subscribed" else 0)
-            except Exception as e:
-                st.error(f"Error with {model_name}: {e}")
+        with st.spinner("Generating predictions..."):
+            for model_name in selected_models:
+                model = models[model_name]
+                try:
+                    proba = model.predict_proba(user_data_aligned)[:, 1][0]
+                    label = "Subscribed" if proba >= confidence_threshold else "Not Subscribed"
+                    predictions_df.loc[len(predictions_df)] = [model_name, label, f"{proba:.2f}"]
+                    confidences.append(proba)
+                    predictions.append(1 if label == "Subscribed" else 0)
+                except Exception as e:
+                    st.error(f"Error with {model_name}: {e}")
 
         st.dataframe(predictions_df, use_container_width=True)
         if confidences:
@@ -339,49 +358,52 @@ with tab1:
         )
 
 with tab2:
-    if explanation_type == "SHAP":
+    if not st.session_state.get("prediction_ready"):
+        st.info("Generate a prediction first to view explanations.")
+    elif explanation_type == "SHAP":
         st.header(f"SHAP Explanation: {selected_shap_model_name}")
         try:
-            model = models[selected_shap_model_name]
-            if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
-                explainer = shap.TreeExplainer(model, X_background)
-            else:
-                # Define a wrapper function for predict_proba to avoid potential binding issues
-                # and ensure it returns probabilities for the positive class
-                def predict_proba_wrapper(X):
-                    return model.predict_proba(X)[:, 1]
+            with st.spinner("Computing SHAP values..."):
+                model = models[selected_shap_model_name]
+                if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
+                    explainer = shap.TreeExplainer(model, X_background)
+                else:
+                    # Define a wrapper function for predict_proba to avoid potential binding issues
+                    # and ensure it returns probabilities for the positive class
+                    def predict_proba_wrapper(X):
+                        return model.predict_proba(X)[:, 1]
 
-                explainer = shap.KernelExplainer(predict_proba_wrapper, X_background)
+                    explainer = shap.KernelExplainer(predict_proba_wrapper, X_background)
 
-            # Get raw SHAP values
-            shap_vals_raw = explainer.shap_values(user_data_aligned)
+                # Get raw SHAP values
+                shap_vals_raw = explainer.shap_values(user_data_aligned)
 
-            # Determine the correct SHAP values and base value for the plot
-            if isinstance(shap_vals_raw, list):
-                # This case is for multi-output models where shap_vals_raw is a list of arrays,
-                # typically [shap_values_class_0, shap_values_class_1, ...]
-                # Each element in the list is (num_instances, num_features)
-                # We want the positive class (index 1) and the first instance
-                shap_values_for_plot = shap_vals_raw[1][0]
-                base_value_for_plot = explainer.expected_value[1]
-            elif shap_vals_raw.ndim == 3:
-                # This case is for multi-output models where shap_vals_raw is (num_instances, num_features, num_classes)
-                # We want the first instance, and the SHAP values for the positive class (index 1)
-                shap_values_for_plot = shap_vals_raw[0][:, 1]
-                base_value_for_plot = explainer.expected_value[1]
-            else: # shap_vals_raw.ndim == 2
-                # This case is for single-output models where shap_vals_raw is (num_instances, num_features)
-                # We want the first instance
-                shap_values_for_plot = shap_vals_raw[0]
-                base_value_for_plot = explainer.expected_value
+                # Determine the correct SHAP values and base value for the plot
+                if isinstance(shap_vals_raw, list):
+                    # This case is for multi-output models where shap_vals_raw is a list of arrays,
+                    # typically [shap_values_class_0, shap_values_class_1, ...]
+                    # Each element in the list is (num_instances, num_features)
+                    # We want the positive class (index 1) and the first instance
+                    shap_values_for_plot = shap_vals_raw[1][0]
+                    base_value_for_plot = explainer.expected_value[1]
+                elif shap_vals_raw.ndim == 3:
+                    # This case is for multi-output models where shap_vals_raw is (num_instances, num_features, num_classes)
+                    # We want the first instance, and the SHAP values for the positive class (index 1)
+                    shap_values_for_plot = shap_vals_raw[0][:, 1]
+                    base_value_for_plot = explainer.expected_value[1]
+                else: # shap_vals_raw.ndim == 2
+                    # This case is for single-output models where shap_vals_raw is (num_instances, num_features)
+                    # We want the first instance
+                    shap_values_for_plot = shap_vals_raw[0]
+                    base_value_for_plot = explainer.expected_value
 
-            # Create the Explanation object
-            explanation = shap.Explanation(
-                values=shap_values_for_plot,
-                base_values=base_value_for_plot,
-                data=np.array(user_data_aligned.iloc[0]),
-                feature_names=model_features
-            )
+                # Create the Explanation object
+                explanation = shap.Explanation(
+                    values=shap_values_for_plot,
+                    base_values=base_value_for_plot,
+                    data=np.array(user_data_aligned.iloc[0]),
+                    feature_names=model_features
+                )
 
             if shap_plot_type == "Bar Plot":
                 fig, _ = plt.subplots()
@@ -423,22 +445,23 @@ with tab2:
     else: # LIME Explanation
         st.header(f"LIME Explanation: {selected_lime_model_name}")
         try:
-            model = models[selected_lime_model_name]
-            # LIME explainer
-            explainer = lime.lime_tabular.LimeTabularExplainer(
-                training_data=X_background.values,
-                feature_names=model_features,
-                class_names=['Not Subscribed', 'Subscribed'],
-                mode='classification'
-            )
+            with st.spinner("Computing LIME explanation..."):
+                model = models[selected_lime_model_name]
+                # LIME explainer
+                explainer = lime.lime_tabular.LimeTabularExplainer(
+                    training_data=X_background.values,
+                    feature_names=model_features,
+                    class_names=['Not Subscribed', 'Subscribed'],
+                    mode='classification'
+                )
 
-            # Explain the instance
-            # LIME expects a 1D numpy array for the instance to explain
-            explanation = explainer.explain_instance(
-                data_row=user_data_aligned.iloc[0].values,
-                predict_fn=model.predict_proba,
-                num_features=len(model_features)
-            )
+                # Explain the instance
+                # LIME expects a 1D numpy array for the instance to explain
+                explanation = explainer.explain_instance(
+                    data_row=user_data_aligned.iloc[0].values,
+                    predict_fn=model.predict_proba,
+                    num_features=len(model_features)
+                )
 
             # Display LIME explanation
             fig = explanation.as_pyplot_figure()
