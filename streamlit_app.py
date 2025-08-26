@@ -112,11 +112,7 @@ else:  # LIME
     selected_lime_model_name = st.sidebar.selectbox("Model for LIME:", list(models.keys()))
 
 st.sidebar.header("Appearance")
-theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark", "Psychedelic"])
-reduced_motion = st.sidebar.checkbox(
-    "Reduced Motion", value=False,
-    help="Disable background animations for accessibility",
-)
+theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark", "Colorblind-Friendly"])
 if theme_choice == "Dark":
     st.markdown(
         """
@@ -130,30 +126,24 @@ if theme_choice == "Dark":
         """,
         unsafe_allow_html=True,
     )
-elif theme_choice == "Psychedelic":
-    st.warning(
-        "Warning: The Psychedelic theme uses rapidly changing background colors, which may trigger seizures or cause discomfort for users with photosensitive epilepsy or vestibular disorders. Consider enabling 'Reduced Motion' for accessibility."
+elif theme_choice == "Colorblind-Friendly":
+    st.info(
+        "High-contrast theme optimized for users with color vision deficiencies."
     )
-    if not reduced_motion:
-        st.markdown(
-            """
-            <style>
-            @keyframes psychedelic-bg {
-                0% {background-color: #ff00ff;}
-                25% {background-color: #00ffff;}
-                50% {background-color: #ffff00;}
-                75% {background-color: #ff6600;}
-                100% {background-color: #ff00ff;}
-            }
-            .stApp {
-                animation: psychedelic-bg 10s infinite;
-                color: white;
-                text-shadow: 0 0 6px #000, 0 0 2px #000, 1px 1px 2px #000;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        """
+        <style>
+        .stApp {background-color: #000000; color: #FFFFFF;}
+        label {color: #FFFFFF;}
+        div[data-testid="stDataFrame"] .dataframe {background-color: #000000; color: #FFFFFF;}
+        div[data-testid="stDataFrame"] .dataframe th, div[data-testid="stDataFrame"] .dataframe td {background-color: #000000; color: #FFFFFF;}
+        input, select, textarea {background-color: #000000; color: #FFFFFF; border: 2px solid #FFFFFF;}
+        a {color: #FFFF00;}
+        .stButton>button {background-color:#000000;color:#FFFF00;border:2px solid #FFFF00;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 with st.sidebar.expander("About"):
     st.write(
