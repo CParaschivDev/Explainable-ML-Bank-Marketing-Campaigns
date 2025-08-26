@@ -121,7 +121,11 @@ if theme_choice == "Dark":
     st.markdown(
         """
         <style>
-        .stApp {background-color: #0e1117; color: white;}
+        .stApp {background-color: #0e1117; color: #FAFAFA;}
+        label {color: #FAFAFA;}
+        div[data-testid="stDataFrame"] .dataframe {background-color: #1e1e1e; color: #FAFAFA;}
+        div[data-testid="stDataFrame"] .dataframe th, div[data-testid="stDataFrame"] .dataframe td {background-color: #1e1e1e; color: #FAFAFA;}
+        input, select, textarea {background-color: #262730; color: #FAFAFA;}
         </style>
         """,
         unsafe_allow_html=True,
