@@ -95,6 +95,11 @@ confidence_threshold = st.sidebar.slider(
     help="Minimum probability required to label a customer as subscribed"
 )
 
+show_animations = st.sidebar.checkbox(
+    "Show Animations", value=True,
+    help="Display balloons or snow after predictions",
+)
+
 st.sidebar.header("Explanation Controls")
 explanation_type = st.sidebar.selectbox("Explanation Type:", ("SHAP", "LIME"))
 
@@ -108,6 +113,10 @@ else:  # LIME
 
 st.sidebar.header("Appearance")
 theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark", "Psychedelic"])
+reduced_motion = st.sidebar.checkbox(
+    "Reduced Motion", value=False,
+    help="Disable background animations for accessibility",
+)
 if theme_choice == "Dark":
     st.markdown(
         """
@@ -118,24 +127,29 @@ if theme_choice == "Dark":
         unsafe_allow_html=True,
     )
 elif theme_choice == "Psychedelic":
-    st.markdown(
-        """
-        <style>
-        @keyframes psychedelic-bg {
-            0% {background-color: #ff00ff;}
-            25% {background-color: #00ffff;}
-            50% {background-color: #ffff00;}
-            75% {background-color: #ff6600;}
-            100% {background-color: #ff00ff;}
-        }
-        .stApp {
-            animation: psychedelic-bg 10s infinite;
-            color: white;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
+    st.warning(
+        "Warning: The Psychedelic theme uses rapidly changing background colors, which may trigger seizures or cause discomfort for users with photosensitive epilepsy or vestibular disorders. Consider enabling 'Reduced Motion' for accessibility."
     )
+    if not reduced_motion:
+        st.markdown(
+            """
+            <style>
+            @keyframes psychedelic-bg {
+                0% {background-color: #ff00ff;}
+                25% {background-color: #00ffff;}
+                50% {background-color: #ffff00;}
+                75% {background-color: #ff6600;}
+                100% {background-color: #ff00ff;}
+            }
+            .stApp {
+                animation: psychedelic-bg 10s infinite;
+                color: white;
+                text-shadow: 0 0 6px #000, 0 0 2px #000, 1px 1px 2px #000;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
 with st.sidebar.expander("About"):
     st.write(
@@ -333,10 +347,11 @@ with tab1:
         if confidences:
             vote = "Subscribed" if sum(predictions) >= len(predictions)/2 else "Not Subscribed"
             st.markdown(f"**Ensemble Vote:** `{vote}`")
-            if vote == "Subscribed":
-                st.balloons()
-            else:
-                st.snow()
+            if show_animations:
+                if vote == "Subscribed":
+                    st.balloons()
+                else:
+                    st.snow()
             st.markdown(f"**Avg Confidence:** `{np.mean(confidences):.2f}`")
             fig, ax = plt.subplots()
             sns.barplot(x=selected_models, y=confidences, ax=ax)
