@@ -70,7 +70,9 @@ def load_sample_data(path="sample_data.csv"):
         st.stop()
 
 # --- Page Setup ---
-st.set_page_config(page_title="Bank Marketing Predictor", layout="wide")
+st.set_page_config(
+    page_title="Bank Marketing Predictor", layout="wide", page_icon="🏦"
+)
 
 models = load_models()
 sample_data = load_sample_data()
@@ -339,14 +341,24 @@ with tab1:
 
         st.dataframe(predictions_df, use_container_width=True)
         if confidences:
+            cols = st.columns(len(selected_models))
+            for idx, model_name in enumerate(selected_models):
+                proba = confidences[idx]
+                label = "Subscribed" if proba >= confidence_threshold else "Not Subscribed"
+                cols[idx].metric(model_name, f"{proba:.2%}")
+                cols[idx].caption(label)
+
             vote = "Subscribed" if sum(predictions) >= len(predictions)/2 else "Not Subscribed"
-            st.markdown(f"**Ensemble Vote:** `{vote}`")
+            if vote == "Subscribed":
+                st.success(f"Ensemble Vote: {vote}")
+            else:
+                st.error(f"Ensemble Vote: {vote}")
             if show_animations:
                 if vote == "Subscribed":
                     st.balloons()
                 else:
                     st.snow()
-            st.markdown(f"**Avg Confidence:** `{np.mean(confidences):.2f}`")
+            st.metric("Avg Confidence", f"{np.mean(confidences):.2%}")
             fig, ax = plt.subplots()
             sns.barplot(x=selected_models, y=confidences, ax=ax)
             ax.set_ylim(0, 1)
