@@ -113,14 +113,15 @@ else:  # LIME
 
 st.sidebar.header("Appearance")
 theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark", "Colorblind-Friendly"])
+accent_color = st.sidebar.color_picker("Accent Color", "#FF4B4B")
 if theme_choice == "Dark":
     st.markdown(
         """
         <style>
         .stApp {background-color: #0e1117; color: #FAFAFA;}
         label {color: #FAFAFA;}
-        div[data-testid="stDataFrame"] .dataframe {background-color: #1e1e1e; color: #FAFAFA;}
-        div[data-testid="stDataFrame"] .dataframe th, div[data-testid="stDataFrame"] .dataframe td {background-color: #1e1e1e; color: #FAFAFA;}
+        div[data-testid=\"stDataFrame\"] .dataframe {background-color: #1e1e1e; color: #FAFAFA;}
+        div[data-testid=\"stDataFrame\"] .dataframe th, div[data-testid=\"stDataFrame\"] .dataframe td {background-color: #1e1e1e; color: #FAFAFA;}
         input, select, textarea {background-color: #262730; color: #FAFAFA;}
         </style>
         """,
@@ -135,8 +136,8 @@ elif theme_choice == "Colorblind-Friendly":
         <style>
         .stApp {background-color: #000000; color: #FFFFFF;}
         label {color: #FFFFFF;}
-        div[data-testid="stDataFrame"] .dataframe {background-color: #000000; color: #FFFFFF;}
-        div[data-testid="stDataFrame"] .dataframe th, div[data-testid="stDataFrame"] .dataframe td {background-color: #000000; color: #FFFFFF;}
+        div[data-testid=\"stDataFrame\"] .dataframe {background-color: #000000; color: #FFFFFF;}
+        div[data-testid=\"stDataFrame\"] .dataframe th, div[data-testid=\"stDataFrame\"] .dataframe td {background-color: #000000; color: #FFFFFF;}
         input, select, textarea {background-color: #000000; color: #FFFFFF; border: 2px solid #FFFFFF;}
         a {color: #FFFF00;}
         .stButton>button {background-color:#000000;color:#FFFF00;border:2px solid #FFFF00;}
@@ -144,6 +145,16 @@ elif theme_choice == "Colorblind-Friendly":
         """,
         unsafe_allow_html=True,
     )
+
+st.markdown(
+    f"""
+    <style>
+    .stButton>button {{background-color:{accent_color}; color:white;}}
+    div[data-testid=\"stMetricValue\"] {{color:{accent_color};}}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 with st.sidebar.expander("About"):
     st.write(
@@ -339,6 +350,11 @@ with tab1:
 
         st.dataframe(predictions_df, use_container_width=True)
         if confidences:
+            metric_cols = st.columns(len(selected_models))
+            for idx, model_name in enumerate(selected_models):
+                status = "Subscribed" if predictions[idx] else "Not Subscribed"
+                metric_cols[idx].metric(model_name, f"{confidences[idx]:.2f}", status)
+
             vote = "Subscribed" if sum(predictions) >= len(predictions)/2 else "Not Subscribed"
             st.markdown(f"**Ensemble Vote:** `{vote}`")
             if show_animations:
