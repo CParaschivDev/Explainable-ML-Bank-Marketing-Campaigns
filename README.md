@@ -23,6 +23,8 @@ LIME (Local Interpretable Model-Agnostic Explanations) approximates the model lo
 - 🎉 Optional animations (balloons or snow) based on predictions
 - 📁 Batch prediction via CSV uploads
 - 📥 Downloadable predictions, confidence charts, and explanation plots
+- 🧪 Data exploration with summary statistics, correlation heatmaps, and feature distributions
+- 🛠️ Model training & evaluation with cross-validation, confusion matrices, ROC and precision–recall curves, and basic fairness checks
 - 📂 Pre-trained models available in the `models/` directory
 
 ---
@@ -65,9 +67,11 @@ The sample dataset is available at: https://www.kaggle.com/datasets/yufengsui/po
    http://localhost:8501
    ```
 3. Upload your dataset or use the provided `sample_data.csv` to:
-   - Generate single or batch predictions
-   - Compare model outputs and confidence scores
-   - Visualize interpretability with LIME and SHAP
+    - Generate single or batch predictions
+    - Compare model outputs and confidence scores
+    - Visualize interpretability with LIME and SHAP
+    - Explore datasets via summary statistics, correlation heatmaps, and feature distribution plots
+    - Train and evaluate models with cross-validation metrics, confusion matrices, and ROC/PR curves
 
 ## 🤝 Contributing
 Contributions are welcome!
