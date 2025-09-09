@@ -9,6 +9,9 @@ import os
 import lime
 import lime.lime_tabular
 import io
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_val_score
+from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, auc
 
 # --- Helper Function for SHAP Force Plots ---
 def st_shap(plot, height=None):
@@ -323,7 +326,13 @@ user_data_aligned = user_data.reindex(columns=model_features, fill_value=0)
 user_data_aligned = user_data_aligned.apply(pd.to_numeric, errors='coerce').astype('float64')
 
 # --- Tabs ---
-tab1, tab2, tab3 = st.tabs(["📊 Predictions", "🔍 Explanation", "📁 Batch Predictions"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Predictions",
+    "🔍 Explanation",
+    "📁 Batch Predictions",
+    "📈 Data Exploration",
+    "🛠️ Train & Evaluate",
+])
 
 with tab1:
     st.header("Prediction Results")
@@ -541,3 +550,91 @@ with tab3:
         )
     else:
         st.info("Upload a CSV file to perform batch predictions.")
+
+with tab4:
+    st.header("Data Exploration")
+    explore_upload = st.file_uploader(
+        "Upload dataset", type="csv", key="explore_upload"
+    )
+    if explore_upload is not None:
+        explore_df = pd.read_csv(explore_upload)
+    else:
+        explore_df = sample_data.copy()
+
+    st.subheader("Summary Statistics")
+    st.dataframe(explore_df.describe())
+
+    st.subheader("Correlation Heatmap")
+    corr = explore_df.select_dtypes(include=[np.number]).corr()
+    fig, ax = plt.subplots()
+    sns.heatmap(corr, ax=ax)
+    st.pyplot(fig)
+
+    st.subheader("Feature Distribution")
+    feature = st.selectbox("Select Feature", explore_df.columns)
+    fig2, ax2 = plt.subplots()
+    sns.histplot(explore_df[feature], bins=20, ax=ax2)
+    st.pyplot(fig2)
+
+with tab5:
+    st.header("Model Training & Evaluation")
+    train_upload = st.file_uploader(
+        "Upload labeled dataset", type="csv", key="train_upload"
+    )
+    if train_upload is not None:
+        train_df = pd.read_csv(train_upload)
+        target_col = st.selectbox(
+            "Target column", train_df.columns, key="target_col"
+        )
+        feature_cols = [c for c in train_df.columns if c != target_col]
+        n_estimators = st.slider("Number of Trees", 50, 500, 100, 50)
+        cv_folds = st.slider("Cross-validation Folds", 2, 10, 5, 1)
+        if st.button("Run Training", key="run_training"):
+            X = train_df[feature_cols]
+            y = train_df[target_col]
+            model = RandomForestClassifier(
+                n_estimators=n_estimators, random_state=42
+            )
+            cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
+            scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
+            st.write(
+                f"Accuracy: {scores.mean():.3f} ± {scores.std():.3f}"
+            )
+            preds = cross_val_predict(model, X, y, cv=cv)
+            cm = confusion_matrix(y, preds)
+            fig3, ax3 = plt.subplots()
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax3)
+            ax3.set_xlabel("Predicted")
+            ax3.set_ylabel("Actual")
+            st.subheader("Confusion Matrix")
+            st.pyplot(fig3)
+            probas = cross_val_predict(
+                model, X, y, cv=cv, method="predict_proba"
+            )[:, 1]
+            fpr, tpr, _ = roc_curve(y, probas)
+            roc_auc = auc(fpr, tpr)
+            fig4, ax4 = plt.subplots()
+            ax4.plot(fpr, tpr, label=f"AUC={roc_auc:.2f}")
+            ax4.plot([0, 1], [0, 1], "--")
+            ax4.set_xlabel("False Positive Rate")
+            ax4.set_ylabel("True Positive Rate")
+            ax4.legend(loc="lower right")
+            st.subheader("ROC Curve")
+            st.pyplot(fig4)
+            precision, recall, _ = precision_recall_curve(y, probas)
+            fig5, ax5 = plt.subplots()
+            ax5.plot(recall, precision)
+            ax5.set_xlabel("Recall")
+            ax5.set_ylabel("Precision")
+            st.subheader("Precision-Recall Curve")
+            st.pyplot(fig5)
+            if "marital_single" in train_df.columns:
+                single_mask = train_df["marital_single"] == 1
+                rate_single = (preds[single_mask] == 1).mean()
+                rate_others = (preds[~single_mask] == 1).mean()
+                st.subheader("Fairness Check")
+                st.write(
+                    f"Positive rate single: {rate_single:.2f}; others: {rate_others:.2f}"
+                )
+    else:
+        st.info("Upload a labeled dataset to train and evaluate models.")
