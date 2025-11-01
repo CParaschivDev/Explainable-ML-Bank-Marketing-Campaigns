@@ -1,40 +1,94 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
-import shap
+import json
 import os
+from pathlib import Path
+from typing import Dict, List
+
+import io
+
+import joblib
 import lime
 import lime.lime_tabular
-import io
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import shap
+import streamlit as st
+
+from app_utils.fairness import compute_group_metrics, to_readable
+from app_utils.preprocessing import prepare_features
+from app_utils.schema import ValidationReport, validate_schema
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_val_score
 from sklearn.metrics import confusion_matrix, roc_curve, precision_recall_curve, auc
+
+MODEL_REGISTRY_PATH = Path("models/registry.json")
+_EXPLAINER_CACHE: Dict[tuple, shap.Explainer] = {}
+
 
 # --- Helper Function for SHAP Force Plots ---
 def st_shap(plot, height=None):
     shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
     st.components.v1.html(shap_html, height=height)
 
+
+def get_explainer(model_name: str, model, background: pd.DataFrame) -> shap.Explainer:
+    signature = (
+        model_name,
+        background.shape[0],
+        tuple(background.columns),
+    )
+    cached = _EXPLAINER_CACHE.get(signature)
+    if cached is not None:
+        return cached
+
+    if "Tree" in model_name or hasattr(model, "estimators_"):
+        explainer = shap.TreeExplainer(model, background)
+    else:
+        def predict_proba_wrapper(X):
+            return model.predict_proba(X)[:, 1]
+
+        explainer = shap.KernelExplainer(predict_proba_wrapper, background)
+
+    _EXPLAINER_CACHE[signature] = explainer
+    return explainer
+
+
+@st.cache_data
+def load_model_registry() -> Dict[str, Dict]:
+    """Return the structured model registry."""
+
+    if not MODEL_REGISTRY_PATH.exists():
+        raise FileNotFoundError(
+            "Model registry missing. Add models/registry.json describing each artifact."
+        )
+    with MODEL_REGISTRY_PATH.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    registry = {entry["name"]: entry for entry in payload.get("models", [])}
+    if not registry:
+        raise ValueError("Model registry is empty.")
+    return registry
+
+
 # --- 1. Load Pretrained Models ---
 @st.cache_resource
 def load_models():
-    models_dir = "models"
+    models_dir = MODEL_REGISTRY_PATH.parent
     if not os.path.isdir(models_dir):
-        st.error(f"Error: The '{models_dir}' directory was not found. Please make sure it's in your GitHub repository.")
+        st.error(
+            f"Error: The '{models_dir}' directory was not found. Please make sure it's in your GitHub repository."
+        )
         st.stop()
 
-    model_paths = {
-        "Decision Tree": os.path.join(models_dir, "decision_tree_model.pkl"),
-        "Random Forest": os.path.join(models_dir, "random_forest_model.pkl"),
-        "Naive Bayes": os.path.join(models_dir, "naive_bayes_model.pkl"),
-        "K-Nearest Neighbors": os.path.join(models_dir, "best_knn_model.pkl"),
-    }
+    try:
+        registry = load_model_registry()
+    except Exception as exc:  # pragma: no cover - surfaced in UI
+        st.error(str(exc))
+        st.stop()
 
     loaded_models = {}
-    for name, path in model_paths.items():
+    for name, entry in registry.items():
+        path = models_dir / entry["path"]
         try:
             loaded_models[name] = joblib.load(path)
         except FileNotFoundError:
@@ -50,20 +104,10 @@ def load_models():
 def load_sample_data(path="sample_data.csv"):
     try:
         data = pd.read_csv(path)
-        data['campaign_log'] = np.log(data['campaign'] + 1e-6)
-        data['pdays_log'] = np.log(data['pdays'] + 1e-6)
-        data['previous_log'] = np.log(data['previous'] + 1e-6)
-        data['duration_log'] = np.log(data['duration'] + 1e-6)
         if 'y' in data.columns:
             data = data.drop(columns=['y'])
-
-        # Convert boolean columns stored as strings to numeric values
-        bool_cols = data.select_dtypes(include=['object']).columns
-        if len(bool_cols) > 0:
-            data[bool_cols] = data[bool_cols].replace({'True': 1, 'False': 0})
-
-        data = data.apply(pd.to_numeric, errors='coerce')
-        data = data.astype('float64')
+        required_cols = data.columns.tolist()
+        data = prepare_features(data, required_cols)
         return data
     except FileNotFoundError:
         st.error(f"Sample data not found at '{path}'.")
@@ -76,6 +120,7 @@ def load_sample_data(path="sample_data.csv"):
 st.set_page_config(page_title="Bank Marketing Predictor", layout="wide")
 
 models = load_models()
+model_registry = load_model_registry()
 sample_data = load_sample_data()
 
 model_features = sample_data.columns.tolist()
@@ -113,6 +158,14 @@ if explanation_type == "SHAP":
     selected_shap_model_name = st.sidebar.selectbox("Model for SHAP:", list(models.keys()))
 else:  # LIME
     selected_lime_model_name = st.sidebar.selectbox("Model for LIME:", list(models.keys()))
+    lime_max = max(3, min(20, len(model_features)))
+    lime_feature_limit = st.sidebar.slider(
+        "LIME: number of features",
+        3,
+        lime_max,
+        min(10, lime_max),
+    )
+    normalize_lime = st.sidebar.checkbox("Normalize LIME weights", value=False)
 
 st.sidebar.header("Appearance")
 theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark", "Colorblind-Friendly"])
@@ -164,6 +217,20 @@ with st.sidebar.expander("About"):
         "Interactive dashboard for predicting term deposit subscriptions "
         "with explainable machine learning models."
     )
+
+with st.sidebar.expander("Model catalog"):
+    catalog_rows = []
+    for name, entry in model_registry.items():
+        metrics = entry.get("metrics", {})
+        catalog_rows.append(
+            {
+                "Model": name,
+                "Version": entry.get("version", "?"),
+                "Accuracy": metrics.get("accuracy"),
+                "ROC AUC": metrics.get("roc_auc"),
+            }
+        )
+    st.dataframe(pd.DataFrame(catalog_rows))
 
 if "prediction_ready" not in st.session_state:
     st.session_state["prediction_ready"] = False
@@ -297,8 +364,7 @@ with st.form("customer_form"):
         st.session_state["prediction_ready"] = True
 
 # --- Preprocess Input ---
-user_input_dict = {feature: 0 for feature in model_features}
-user_input_dict.update({
+user_input_dict = {
     'age': age,
     'duration': duration,
     'campaign': campaign,
@@ -309,21 +375,26 @@ user_input_dict.update({
     'cons.conf.idx': cons_conf_idx,
     'euribor3m': euribor3m,
     'nr.employed': nr_employed,
-    'contact_telephone': 1 if contact_telephone else 0,
-    'poutcome_success': 1 if poutcome_success else 0,
-    'campaign_log': np.log(campaign + 1e-6),
-    'pdays_log': np.log(pdays + 1e-6),
-    'previous_log': np.log(previous + 1e-6),
-    'duration_log': np.log(duration + 1e-6),
-    'day_of_week_mon': 1 if day_of_week_mon else 0,
-    'education_basic.6y': 1 if education_basic_6y else 0,
-    'job_management': 1 if job_management else 0,
-    'marital_single': 1 if marital_single else 0
-})
+    'contact_telephone': contact_telephone,
+    'poutcome_success': poutcome_success,
+    'day_of_week_mon': day_of_week_mon,
+    'education_basic.6y': education_basic_6y,
+    'job_management': job_management,
+    'marital_single': marital_single,
+}
 
 user_data = pd.DataFrame([user_input_dict])
-user_data_aligned = user_data.reindex(columns=model_features, fill_value=0)
-user_data_aligned = user_data_aligned.apply(pd.to_numeric, errors='coerce').astype('float64')
+try:
+    user_data_aligned = prepare_features(user_data, model_features)
+    user_validation_report = validate_schema(
+        user_data_aligned, model_features
+    )
+    st.session_state["user_validation_error"] = ""
+except ValueError as exc:
+    user_data_aligned = None
+    user_validation_report = None
+    st.session_state["prediction_ready"] = False
+    st.session_state["user_validation_error"] = str(exc)
 
 # --- Tabs ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -338,10 +409,18 @@ with tab1:
     st.header("Prediction Results")
     if not st.session_state.get("prediction_ready"):
         st.info("Fill in the customer form and hit Predict to view results.")
+    elif st.session_state.get("user_validation_error"):
+        st.error(st.session_state["user_validation_error"])
+    elif user_data_aligned is None:
+        st.error("Input validation failed. Please review the customer form.")
     elif not selected_models:
         st.warning("Select at least one model.")
     else:
         st.dataframe(user_data_aligned)
+        if user_validation_report and user_validation_report.is_valid:
+            st.caption("✅ Input validated against the expected schema.")
+        elif user_validation_report:
+            st.warning("Input contains schema warnings; predictions may be unreliable.")
         predictions_df = pd.DataFrame(columns=["Model", "Prediction", "Confidence"])
         confidences, predictions = [], []
 
@@ -399,16 +478,7 @@ with tab2:
         try:
             with st.spinner("Computing SHAP values..."):
                 model = models[selected_shap_model_name]
-                if "Tree" in selected_shap_model_name or "Forest" in selected_shap_model_name:
-                    explainer = shap.TreeExplainer(model, X_background)
-                else:
-                    # Define a wrapper function for predict_proba to avoid potential binding issues
-                    # and ensure it returns probabilities for the positive class
-                    def predict_proba_wrapper(X):
-                        return model.predict_proba(X)[:, 1]
-
-                    explainer = shap.KernelExplainer(predict_proba_wrapper, X_background)
-
+                explainer = get_explainer(selected_shap_model_name, model, X_background)
                 # Get raw SHAP values
                 shap_vals_raw = explainer.shap_values(user_data_aligned)
 
@@ -494,7 +564,7 @@ with tab2:
                 explanation = explainer.explain_instance(
                     data_row=user_data_aligned.iloc[0].values,
                     predict_fn=model.predict_proba,
-                    num_features=len(model_features)
+                    num_features=lime_feature_limit
                 )
 
             # Display LIME explanation
@@ -511,7 +581,12 @@ with tab2:
 
             st.markdown("---")
             st.subheader("LIME Explanation Details")
-            for feature, weight in explanation.as_list():
+            lime_pairs = explanation.as_list()[:lime_feature_limit]
+            if normalize_lime:
+                denom = sum(abs(weight) for _, weight in lime_pairs) or 1
+                lime_pairs = [(feature, weight / denom) for feature, weight in lime_pairs]
+                st.caption("Weights normalized to sum of absolute contributions = 1.0")
+            for feature, weight in lime_pairs:
                 st.write(f"- **{feature}**: {weight:.4f}")
 
         except Exception as e:
@@ -523,31 +598,45 @@ with tab3:
         "Upload CSV", type="csv", help="File must include the same feature columns as sample_data.csv"
     )
     if uploaded_file is not None:
-        batch_df = pd.read_csv(uploaded_file)
-        for col in ["campaign", "pdays", "previous", "duration"]:
-            if col in batch_df.columns:
-                batch_df[f"{col}_log"] = np.log(batch_df[col] + 1e-6)
-        bool_cols = batch_df.select_dtypes(include=["object"]).columns
-        if len(bool_cols) > 0:
-            batch_df[bool_cols] = batch_df[bool_cols].replace({"True": 1, "False": 0})
-        batch_df = batch_df.reindex(columns=model_features, fill_value=0)
-        batch_df = batch_df.apply(pd.to_numeric, errors="coerce").astype("float64")
-        results_df = batch_df.copy()
-        for model_name in selected_models:
-            model = models[model_name]
+        raw_batch_df = pd.read_csv(uploaded_file)
+        st.caption("Preview of uploaded dataset")
+        st.dataframe(raw_batch_df.head())
+
+        with st.status("Validating batch file...", expanded=False) as status:
             try:
-                probas = model.predict_proba(batch_df)[:, 1]
-                results_df[f"{model_name}_prob"] = probas
-                results_df[f"{model_name}_pred"] = np.where(
-                    probas >= confidence_threshold, "Subscribed", "Not Subscribed"
+                batch_df = prepare_features(raw_batch_df, model_features)
+            except ValueError as exc:
+                status.update(state="error", label="Validation failed")
+                st.error(f"Schema validation failed: {exc}")
+                batch_df = None
+            else:
+                status.update(state="complete", label="Validation passed")
+
+        if batch_df is not None:
+            report = validate_schema(batch_df, model_features)
+            if report.row_errors:
+                st.error(
+                    "Row-level validation errors detected. Please fix the dataset and re-upload."
                 )
-            except Exception as e:
-                st.error(f"Error with {model_name}: {e}")
-        st.dataframe(results_df, use_container_width=True)
-        csv_res = results_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Download results", csv_res, "batch_predictions.csv", "text/csv"
-        )
+                st.json(report.row_errors)
+            else:
+                st.success("Batch file validated successfully.")
+                results_df = batch_df.copy()
+                for model_name in selected_models:
+                    model = models[model_name]
+                    try:
+                        probas = model.predict_proba(batch_df)[:, 1]
+                        results_df[f"{model_name}_prob"] = probas
+                        results_df[f"{model_name}_pred"] = np.where(
+                            probas >= confidence_threshold, "Subscribed", "Not Subscribed"
+                        )
+                    except Exception as e:
+                        st.error(f"Error with {model_name}: {e}")
+                st.dataframe(results_df, use_container_width=True)
+                csv_res = results_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download results", csv_res, "batch_predictions.csv", "text/csv"
+                )
     else:
         st.info("Upload a CSV file to perform batch predictions.")
 
@@ -587,13 +676,32 @@ with tab5:
             "Target column", train_df.columns, key="target_col"
         )
         feature_cols = [c for c in train_df.columns if c != target_col]
+        binary_candidates = [
+            c for c in feature_cols if set(train_df[c].dropna().unique()).issubset({0, 1})
+        ]
+        protected_attr = st.selectbox(
+            "Protected attribute for fairness checks",
+            options=binary_candidates or ["(none)"]
+        )
         n_estimators = st.slider("Number of Trees", 50, 500, 100, 50)
+        max_depth = st.slider("Max depth (0 = unlimited)", 0, 20, 0, 1)
+        min_samples_leaf = st.slider("Min samples per leaf", 1, 10, 1)
         cv_folds = st.slider("Cross-validation Folds", 2, 10, 5, 1)
+        balance_classes = st.checkbox("Balance class weights", value=True)
+
+        target_counts = train_df[target_col].value_counts(normalize=True)
+        st.caption("Class distribution")
+        st.dataframe(target_counts.rename("share"))
+
         if st.button("Run Training", key="run_training"):
             X = train_df[feature_cols]
             y = train_df[target_col]
             model = RandomForestClassifier(
-                n_estimators=n_estimators, random_state=42
+                n_estimators=n_estimators,
+                random_state=42,
+                max_depth=None if max_depth == 0 else max_depth,
+                min_samples_leaf=min_samples_leaf,
+                class_weight="balanced" if balance_classes else None,
             )
             cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
             scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
@@ -628,13 +736,14 @@ with tab5:
             ax5.set_ylabel("Precision")
             st.subheader("Precision-Recall Curve")
             st.pyplot(fig5)
-            if "marital_single" in train_df.columns:
-                single_mask = train_df["marital_single"] == 1
-                rate_single = (preds[single_mask] == 1).mean()
-                rate_others = (preds[~single_mask] == 1).mean()
+            if protected_attr != "(none)":
                 st.subheader("Fairness Check")
-                st.write(
-                    f"Positive rate single: {rate_single:.2f}; others: {rate_others:.2f}"
+                fairness = compute_group_metrics(
+                    train_df,
+                    protected_attr,
+                    preds.astype(int),
+                    labels=y.to_numpy(),
                 )
+                st.table(pd.DataFrame([to_readable(fairness)]))
     else:
         st.info("Upload a labeled dataset to train and evaluate models.")
