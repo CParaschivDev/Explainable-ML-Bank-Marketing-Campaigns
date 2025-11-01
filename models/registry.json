@@ -1,0 +1,44 @@
+{
+  "models": [
+    {
+      "name": "Decision Tree",
+      "path": "decision_tree_model.pkl",
+      "version": "2023.10",
+      "trained_on": "bank-marketing-clean.csv",
+      "metrics": {
+        "accuracy": 0.86,
+        "roc_auc": 0.88
+      }
+    },
+    {
+      "name": "Random Forest",
+      "path": "random_forest_model.pkl",
+      "version": "2023.10",
+      "trained_on": "bank-marketing-clean.csv",
+      "metrics": {
+        "accuracy": 0.91,
+        "roc_auc": 0.94
+      }
+    },
+    {
+      "name": "Naive Bayes",
+      "path": "naive_bayes_model.pkl",
+      "version": "2023.10",
+      "trained_on": "bank-marketing-clean.csv",
+      "metrics": {
+        "accuracy": 0.78,
+        "roc_auc": 0.81
+      }
+    },
+    {
+      "name": "K-Nearest Neighbors",
+      "path": "best_knn_model.pkl",
+      "version": "2023.10",
+      "trained_on": "bank-marketing-clean.csv",
+      "metrics": {
+        "accuracy": 0.82,
+        "roc_auc": 0.84
+      }
+    }
+  ]
+}
