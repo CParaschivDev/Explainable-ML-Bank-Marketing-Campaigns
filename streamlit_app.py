@@ -26,6 +26,33 @@ MODEL_REGISTRY_PATH = Path("models/registry.json")
 _EXPLAINER_CACHE: Dict[tuple, shap.Explainer] = {}
 
 
+def summarize_data_quality(df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    """Return high-level data quality summaries for display."""
+
+    missingness = df.isna().mean().mul(100).round(2)
+    missing_table = missingness.reset_index()
+    missing_table.columns = ["Feature", "% Missing"]
+
+    binary_columns = [
+        col
+        for col in df.columns
+        if set(df[col].dropna().unique()).issubset({0, 1})
+    ]
+    binary_rows: List[Dict[str, float]] = []
+    for col in binary_columns:
+        counts = df[col].value_counts(normalize=True).reindex([0, 1], fill_value=0)
+        binary_rows.append(
+            {
+                "Feature": col,
+                "P(0)": counts.get(0, 0.0).round(3),
+                "P(1)": counts.get(1, 0.0).round(3),
+            }
+        )
+
+    binary_table = pd.DataFrame(binary_rows)
+    return {"missing": missing_table, "binary": binary_table}
+
+
 # --- Helper Function for SHAP Force Plots ---
 def st_shap(plot, height=None):
     shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
@@ -127,49 +154,111 @@ model_features = sample_data.columns.tolist()
 X_background = sample_data[model_features].head(100)
 X_background = X_background.apply(pd.to_numeric, errors='coerce').astype('float64')
 
+# --- Session State Defaults ---
+def set_default_state(key, value):
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+set_default_state("selected_models", list(models.keys()))
+set_default_state("confidence_threshold", 0.5)
+set_default_state("show_animations", True)
+set_default_state("explanation_type", "SHAP")
+set_default_state("shap_plot_type", "Bar Plot")
+first_model_name = next(iter(models.keys()))
+set_default_state("selected_shap_model_name", first_model_name)
+set_default_state("selected_lime_model_name", first_model_name)
+set_default_state(
+    "lime_feature_limit", min(10, max(3, min(20, len(model_features))))
+)
+set_default_state("normalize_lime", False)
+set_default_state("theme_choice", "Light")
+set_default_state("accent_color", "#FF4B4B")
+
 st.title("Bank Marketing Campaign Predictor")
 st.markdown("""
 Predict whether a bank customer will subscribe to a term deposit
 based on various input features and explore the explanations behind the predictions.
 """)
 
+st.subheader("Model Registry Overview")
+registry_rows = []
+for name, entry in model_registry.items():
+    metrics = entry.get("metrics", {})
+    registry_rows.append(
+        {
+            "Model": name,
+            "Version": entry.get("version", "?"),
+            "Trained On": entry.get("trained_on", "?"),
+            "Path": entry.get("path", "?"),
+            "Accuracy": metrics.get("accuracy"),
+            "ROC AUC": metrics.get("roc_auc"),
+        }
+    )
+
+registry_df = pd.DataFrame(registry_rows)
+st.dataframe(registry_df, use_container_width=True)
+st.download_button(
+    "Download registry",  # pragma: allowlist secret
+    json.dumps({"models": list(model_registry.values())}, indent=2),
+    file_name="model_registry.json",
+    mime="application/json",
+)
+
 # --- Sidebar Controls ---
 st.sidebar.header("App Controls")
 selected_models = st.sidebar.multiselect(
-    "Choose Models:", list(models.keys()), default=list(models.keys())
+    "Choose Models:", list(models.keys()),
+    default=st.session_state["selected_models"],
+    key="selected_models",
 )
 confidence_threshold = st.sidebar.slider(
-    "Confidence Threshold:", 0.0, 1.0, 0.5, 0.01,
-    help="Minimum probability required to label a customer as subscribed"
+    "Confidence Threshold:", 0.0, 1.0, st.session_state["confidence_threshold"], 0.01,
+    help="Minimum probability required to label a customer as subscribed",
+    key="confidence_threshold",
 )
 
 show_animations = st.sidebar.checkbox(
-    "Show Animations", value=True,
+    "Show Animations", value=st.session_state["show_animations"], key="show_animations",
     help="Display balloons or snow after predictions",
 )
 
 st.sidebar.header("Explanation Controls")
-explanation_type = st.sidebar.selectbox("Explanation Type:", ("SHAP", "LIME"))
+explanation_type = st.sidebar.selectbox(
+    "Explanation Type:", ("SHAP", "LIME"), key="explanation_type"
+)
 
 if explanation_type == "SHAP":
     shap_plot_type = st.sidebar.selectbox(
-        "SHAP Plot Type:", ("Bar Plot", "Waterfall", "Force Plot", "Summary Plot")
+        "SHAP Plot Type:", ("Bar Plot", "Waterfall", "Force Plot", "Summary Plot"),
+        key="shap_plot_type",
     )
-    selected_shap_model_name = st.sidebar.selectbox("Model for SHAP:", list(models.keys()))
+    selected_shap_model_name = st.sidebar.selectbox(
+        "Model for SHAP:", list(models.keys()), key="selected_shap_model_name"
+    )
 else:  # LIME
-    selected_lime_model_name = st.sidebar.selectbox("Model for LIME:", list(models.keys()))
+    selected_lime_model_name = st.sidebar.selectbox(
+        "Model for LIME:", list(models.keys()), key="selected_lime_model_name"
+    )
     lime_max = max(3, min(20, len(model_features)))
     lime_feature_limit = st.sidebar.slider(
         "LIME: number of features",
         3,
         lime_max,
-        min(10, lime_max),
+        st.session_state.get("lime_feature_limit", min(10, lime_max)),
+        key="lime_feature_limit",
     )
-    normalize_lime = st.sidebar.checkbox("Normalize LIME weights", value=False)
+    normalize_lime = st.sidebar.checkbox(
+        "Normalize LIME weights", value=st.session_state["normalize_lime"], key="normalize_lime"
+    )
 
 st.sidebar.header("Appearance")
-theme_choice = st.sidebar.selectbox("Theme", ["Light", "Dark", "Colorblind-Friendly"])
-accent_color = st.sidebar.color_picker("Accent Color", "#FF4B4B")
+theme_choice = st.sidebar.selectbox(
+    "Theme", ["Light", "Dark", "Colorblind-Friendly"], key="theme_choice"
+)
+accent_color = st.sidebar.color_picker(
+    "Accent Color", st.session_state["accent_color"], key="accent_color"
+)
 if theme_choice == "Dark":
     st.markdown(
         """
@@ -226,11 +315,20 @@ with st.sidebar.expander("Model catalog"):
             {
                 "Model": name,
                 "Version": entry.get("version", "?"),
+                "Trained On": entry.get("trained_on", "?"),
+                "Path": entry.get("path", "?"),
                 "Accuracy": metrics.get("accuracy"),
                 "ROC AUC": metrics.get("roc_auc"),
             }
         )
     st.dataframe(pd.DataFrame(catalog_rows))
+    st.download_button(
+        "Download registry JSON",  # pragma: allowlist secret
+        json.dumps({"models": list(model_registry.values())}, indent=2),
+        file_name="model_registry.json",
+        mime="application/json",
+        key="sidebar_registry_download",
+    )
 
 if "prediction_ready" not in st.session_state:
     st.session_state["prediction_ready"] = False
@@ -621,6 +719,17 @@ with tab3:
                 st.json(report.row_errors)
             else:
                 st.success("Batch file validated successfully.")
+                st.subheader("Data Quality Summary")
+                summary = summarize_data_quality(batch_df)
+                metric_cols = st.columns(2)
+                metric_cols[0].metric("Rows", len(batch_df))
+                metric_cols[1].metric("Columns", batch_df.shape[1])
+                st.caption("Missing values (percent of rows)")
+                st.dataframe(summary["missing"], use_container_width=True)
+                if not summary["binary"].empty:
+                    st.caption("Binary feature distribution")
+                    st.dataframe(summary["binary"], use_container_width=True)
+
                 results_df = batch_df.copy()
                 for model_name in selected_models:
                     model = models[model_name]
