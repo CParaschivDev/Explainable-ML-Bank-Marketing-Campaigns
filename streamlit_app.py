@@ -143,16 +143,34 @@ def load_sample_data(path="sample_data.csv"):
         st.error(f"Error loading sample data: {e}")
         st.stop()
 
+
+@st.cache_data
+def load_raw_sample_data(path="sample_data.csv"):
+    """Load the unmodified sample data, retaining the label column."""
+
+    try:
+        return pd.read_csv(path)
+    except FileNotFoundError:
+        st.error(f"Sample data not found at '{path}'.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Error loading sample data: {e}")
+        st.stop()
+
 # --- Page Setup ---
 st.set_page_config(page_title="Bank Marketing Predictor", layout="wide")
 
 models = load_models()
 model_registry = load_model_registry()
 sample_data = load_sample_data()
+raw_sample_data = load_raw_sample_data()
 
 model_features = sample_data.columns.tolist()
 X_background = sample_data[model_features].head(100)
 X_background = X_background.apply(pd.to_numeric, errors='coerce').astype('float64')
+
+prediction_template_csv = sample_data.head(200).to_csv(index=False).encode("utf-8")
+training_template_csv = raw_sample_data.head(200).to_csv(index=False).encode("utf-8")
 
 # --- Session State Defaults ---
 def set_default_state(key, value):
@@ -692,6 +710,16 @@ with tab2:
 
 with tab3:
     st.header("Batch Predictions")
+    st.caption(
+        "Need a starting point? Download a template with the engineered feature columns used for inference."
+    )
+    st.download_button(
+        "Download prediction template",  # pragma: allowlist secret
+        prediction_template_csv,
+        "prediction_template.csv",
+        "text/csv",
+        key="prediction_template_download",
+    )
     uploaded_file = st.file_uploader(
         "Upload CSV", type="csv", help="File must include the same feature columns as sample_data.csv"
     )
@@ -776,6 +804,16 @@ with tab4:
 
 with tab5:
     st.header("Model Training & Evaluation")
+    st.caption(
+        "Use the template below if you need an example labeled dataset that matches the app's expected schema."
+    )
+    st.download_button(
+        "Download training template",  # pragma: allowlist secret
+        training_template_csv,
+        "training_template.csv",
+        "text/csv",
+        key="training_template_download",
+    )
     train_upload = st.file_uploader(
         "Upload labeled dataset", type="csv", key="train_upload"
     )
