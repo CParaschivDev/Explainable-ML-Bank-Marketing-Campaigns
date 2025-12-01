@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import warnings
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -42,27 +43,14 @@ def test_model_registry_metadata_aligns_with_models():
 
 
 def test_prepare_features_engineers_logs_and_coerces_indicators():
-    reference = load_sample_data()
-    features = reference.columns.tolist()
-    row = {
-        "age": 30,
-        "duration": 100,
-        "campaign": 2,
-        "pdays": 10,
-        "previous": 1,
-        "emp.var.rate": 1.0,
-        "cons.price.idx": 93.0,
-        "cons.conf.idx": -42.0,
-        "euribor3m": 4.5,
-        "nr.employed": 5191.0,
-        "contact_telephone": "True",
-        "poutcome_success": "False",
-        "day_of_week_mon": "yes",
-        "education_basic.6y": False,
-        "job_management": True,
-        "marital_single": False,
-    }
-    df = pd.DataFrame([row])
+    df = load_sample_data().head(1).copy()
+    features = df.columns.tolist()
+    df.loc[:, "contact_telephone"] = "True"
+    df.loc[:, "poutcome_success"] = "False"
+    df.loc[:, "day_of_week_mon"] = "yes"
+    df.loc[:, "education_basic.6y"] = False
+    df.loc[:, "job_management"] = True
+    df.loc[:, "marital_single"] = False
     prepared = prepare_features(df, features)
     assert set(features) == set(prepared.columns)
     assert prepared.loc[0, "contact_telephone"] == 1.0
@@ -76,6 +64,41 @@ def test_validate_schema_flags_invalid_indicator():
     report = validate_schema(reference, reference.columns)
     assert not report.is_valid
     assert "contact_telephone" in report.invalid_indicators
+
+
+def test_prepare_features_reports_missing_columns_before_fill():
+    reference = load_sample_data()
+    features = reference.columns.tolist()
+    without_age = reference.drop(columns=["age"])
+    with pytest.raises(ValueError, match="age"):
+        prepare_features(without_age, features)
+
+
+def test_validate_schema_captures_numeric_limits_and_missing_values():
+    df = load_sample_data().head(2).copy()
+    df.loc[0, "age"] = 10
+    df.loc[0, "emp.var.rate"] = 20
+    df.loc[1, "campaign"] = np.nan
+
+    report = validate_schema(df, df.columns)
+
+    assert not report.is_valid
+    assert "age=10.0 below minimum 17" in report.row_errors[0]
+    assert "emp.var.rate=20.0 above maximum 10" in report.row_errors[0]
+    assert "campaign is missing" in report.row_errors[1]
+
+
+def test_compute_group_metrics_handles_zero_reference_rate():
+    df = pd.DataFrame({"marital_single": [1, 0, 0]})
+    preds = np.array([1, 0, 0])
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("error")
+        result = compute_group_metrics(df, "marital_single", preds)
+
+    assert result.reference_rate == 0
+    assert np.isnan(result.disparate_impact)
+    assert not caught
 
 
 def test_compute_group_metrics_outputs_expected_ratios():
