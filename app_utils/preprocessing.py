@@ -6,7 +6,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from .schema import ensure_derived_features, enforce_schema
+from .schema import ensure_derived_features, enforce_schema, validate_schema
 
 
 BOOLEAN_REPLACEMENTS = {"True": 1, "False": 0, True: 1, False: 0, "yes": 1, "no": 0}
@@ -53,6 +53,11 @@ def prepare_features(df: pd.DataFrame, required_columns: Iterable[str]) -> pd.Da
         ],
     )
     df = ensure_derived_features(df)
+    missing_report = validate_schema(df, required_columns)
+    if missing_report.missing_columns:
+        raise ValueError(
+            f"Missing columns: {', '.join(sorted(missing_report.missing_columns))}"
+        )
     df = df.reindex(columns=required_columns, fill_value=0)
     df = df.apply(pd.to_numeric, errors="coerce").astype(np.float64)
     enforce_schema(df, required_columns)

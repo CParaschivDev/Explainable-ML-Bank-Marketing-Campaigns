@@ -34,8 +34,9 @@ def compute_group_metrics(
     protected_rate = float(protected_pred.mean()) if len(protected_pred) else float("nan")
     reference_rate = float(reference_pred.mean()) if len(reference_pred) else float("nan")
 
+    has_valid_reference = not (reference_rate == 0 or np.isnan(reference_rate))
     disparate_impact = (
-        protected_rate / reference_rate if reference_rate not in (0, np.nan) else float("nan")
+        protected_rate / reference_rate if has_valid_reference else float("nan")
     )
 
     if labels is None:
