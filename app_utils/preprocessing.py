@@ -37,8 +37,23 @@ def _normalize_indicator_value(value):
     return value
 
 
-def prepare_features(df: pd.DataFrame, required_columns: Iterable[str]) -> pd.DataFrame:
-    """Validate and cast features for inference."""
+def prepare_features(
+    df: pd.DataFrame, required_columns: Iterable[str], strict: bool = True
+) -> pd.DataFrame:
+    """Validate and cast features for inference.
+
+    Parameters
+    ----------
+    df:
+        The input dataframe containing raw features.
+    required_columns:
+        Ordered collection of columns expected by the model pipeline.
+    strict:
+        When True (default) the function raises on missing columns. When False the
+        function will add any missing columns filled with zeros, which is useful for
+        single-record inference where not all one-hot encoded columns are captured by
+        user inputs.
+    """
 
     df = df.copy()
     df = coerce_indicators(
@@ -54,7 +69,7 @@ def prepare_features(df: pd.DataFrame, required_columns: Iterable[str]) -> pd.Da
     )
     df = ensure_derived_features(df)
     missing_report = validate_schema(df, required_columns)
-    if missing_report.missing_columns:
+    if missing_report.missing_columns and strict:
         raise ValueError(
             f"Missing columns: {', '.join(sorted(missing_report.missing_columns))}"
         )

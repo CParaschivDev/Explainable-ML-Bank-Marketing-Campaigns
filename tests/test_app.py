@@ -74,6 +74,31 @@ def test_prepare_features_reports_missing_columns_before_fill():
         prepare_features(without_age, features)
 
 
+def test_prepare_features_can_fill_missing_when_not_strict():
+    reference = load_sample_data()
+    features = reference.columns.tolist()
+
+    minimal_input = pd.DataFrame(
+        {
+            "age": [40],
+            "duration": [300],
+            "campaign": [2],
+            "pdays": [999],
+            "previous": [0],
+            "emp.var.rate": [1.1],
+            "cons.price.idx": [93.9],
+            "cons.conf.idx": [-42.7],
+            "euribor3m": [4.8],
+            "nr.employed": [5191.0],
+        }
+    )
+
+    prepared = prepare_features(minimal_input, features, strict=False)
+
+    assert set(prepared.columns) == set(features)
+    assert prepared.isna().sum().sum() == 0
+
+
 def test_validate_schema_captures_numeric_limits_and_missing_values():
     df = load_sample_data().head(2).copy()
     df.loc[0, "age"] = 10
