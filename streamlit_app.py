@@ -501,7 +501,7 @@ user_input_dict = {
 
 user_data = pd.DataFrame([user_input_dict])
 try:
-    user_data_aligned = prepare_features(user_data, model_features)
+    user_data_aligned = prepare_features(user_data, model_features, strict=False)
     user_validation_report = validate_schema(
         user_data_aligned, model_features
     )
