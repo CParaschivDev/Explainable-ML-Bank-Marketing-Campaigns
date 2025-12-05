@@ -192,6 +192,8 @@ set_default_state(
 set_default_state("normalize_lime", False)
 set_default_state("theme_choice", "Light")
 set_default_state("accent_color", "#FF4B4B")
+set_default_state("prediction_ready", False)
+set_default_state("user_validation_error", "")
 
 st.title("Bank Marketing Campaign Predictor")
 st.markdown("""
