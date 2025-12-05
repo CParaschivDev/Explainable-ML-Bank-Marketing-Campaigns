@@ -113,6 +113,16 @@ def test_validate_schema_captures_numeric_limits_and_missing_values():
     assert "campaign is missing" in report.row_errors[1]
 
 
+def test_validate_schema_reports_non_numeric_values_instead_of_erroring():
+    df = load_sample_data().head(1).copy()
+    df.loc[0, "age"] = "thirty"
+
+    report = validate_schema(df, df.columns)
+
+    assert not report.is_valid
+    assert "age must be numeric" in report.row_errors[0]
+
+
 def test_compute_group_metrics_handles_zero_reference_rate():
     df = pd.DataFrame({"marital_single": [1, 0, 0]})
     preds = np.array([1, 0, 0])

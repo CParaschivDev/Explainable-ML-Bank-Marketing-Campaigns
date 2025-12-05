@@ -66,10 +66,17 @@ def validate_schema(df: pd.DataFrame, required_columns: Iterable[str]) -> Valida
                 if pd.isna(value):
                     messages.append(f"{col} is missing")
                     continue
-                if lower is not None and value < lower:
-                    messages.append(f"{col}={value} below minimum {lower}")
-                if upper is not None and value > upper:
-                    messages.append(f"{col}={value} above maximum {upper}")
+
+                try:
+                    numeric_value = float(value)
+                except (TypeError, ValueError):
+                    messages.append(f"{col} must be numeric, got {value}")
+                    continue
+
+                if lower is not None and numeric_value < lower:
+                    messages.append(f"{col}={numeric_value} below minimum {lower}")
+                if upper is not None and numeric_value > upper:
+                    messages.append(f"{col}={numeric_value} above maximum {upper}")
             for indicator in BINARY_INDICATORS:
                 if indicator in df.columns:
                     value = row.get(indicator)
